@@ -1,0 +1,15 @@
+{
+  "name": "minecraft",
+  "description": "Claude Code marketplace for Minecraft server and modpack management",
+  "owner": {
+    "name": "disqt"
+  },
+  "plugins": [
+    {
+      "name": "prism-modpack-audit",
+      "source": "./plugins/prism-modpack-audit",
+      "description": "Audit and update Prism Launcher Fabric modpacks — find better mods, check versions, apply changes, publish to friends",
+      "version": "1.0.0"
+    }
+  ]
+}
