@@ -1,9 +1,12 @@
 ---
-name: minecraft-prism-mods-meta-refresh
+name: meta-refresh
 description: Use when the user wants to know if their Prism Launcher Fabric modset is still optimal, when mods may have been superseded by better alternatives, when the user suspects redundant mods, or when gaps in coverage are suspected for a given MC version and player profile.
 ---
 
-# Skill: Minecraft Prism Mods Meta Refresh
+REQUIRED SUB-SKILL: superpowers:dispatching-parallel-agents
+REQUIRED SUB-SKILL: compat-check
+
+# Minecraft Prism Mods Meta Refresh
 
 Audit a Prism Launcher Fabric instance to determine whether each mod is still best-in-class, find better alternatives using live Modrinth data, record approved decisions to a shared decision doc, then chain to version-refresh.
 
@@ -17,7 +20,7 @@ Ask for any of these not already provided:
 - **Player profile** — default: vanilla+ Fabric client (performance, subtlety, no gameplay changes). Explicitly excluded: minimap/world map mods, block/entity info overlays (Jade, WAILA, etc.), persistent HUD overlays if BetterF3 or equivalent is already present, any mod that reveals world information not accessible in vanilla.
 - **Reference packs** — default: DisruptiveBuilds REFINED (`dbs-minecraft-refined`) and PLUS (`dbs-minecraft-plus`) on Modrinth
 - **Server SSH host** *(optional)* — e.g. `minecraft`. If provided, check server plugins via `ssh <host> "ls /home/minecraft/serverfiles/plugins/"` to determine which server-side companions are active (DHSupport enables DH LOD sync; Lithium and Krypton are primarily server-side — client-only installs have partial benefit).
-- **Decision doc path** — if passed from full-audit, use it. Otherwise: `./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md` (create if not exists)
+- **Decision doc path** — if passed from audit, use it. Otherwise: `./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md` (create if not exists)
 
 ---
 
@@ -50,11 +53,13 @@ Output: category → [mod list] map.
 
 ### Phase 2 — Parallel Category Agents
 
+**REQUIRED SUB-SKILL: superpowers:dispatching-parallel-agents** — use it to dispatch and manage all category agents.
+
 Run one general-purpose agent per non-library, non-disabled category. Dispatch all with `run_in_background: true`.
 
 Read `./category-agent-prompt.md` (in this skill's directory) for the full agent prompt template. Inject per-agent values (category name, user mods, MC version, modloader, server-side companions) from Phase 1.
 
-When constructing sub-agent prompts, resolve all relative paths (like `../mc-mod-compat-check/SKILL.md`) to absolute paths using this skill's base directory before injecting.
+When constructing sub-agent prompts, resolve all relative paths (like `../compat-check/SKILL.md`) to absolute paths using this skill's base directory before injecting.
 
 Wait for all agents to complete before Phase 3.
 
@@ -88,7 +93,7 @@ Files are written only after the user responds to the upgrade plan.
 
 **Decision doc path:** `./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md`
 
-Create `./minecraft-audits/` if it doesn't exist. Create the file if it doesn't exist. If it already exists (created by full-audit), append to it.
+Create `./minecraft-audits/` if it doesn't exist. Create the file if it doesn't exist. If it already exists (created by audit), append to it.
 
 **Header (write at top if creating):**
 
@@ -120,8 +125,23 @@ After writing the decision doc, say:
 >
 > Proceed to version-refresh? **(yes / cancel)**
 
-- **If yes:** Say "Invoking `minecraft-prism-mods-version-refresh`." and invoke it, passing the decision doc path and instance name.
+- **If yes:** Say "Invoking `version-refresh`." and invoke it, passing the decision doc path and instance name.
 - **If cancel:** Ask: "Delete the decision doc to keep tidy, or save it for a future run? **(delete / keep)**" — act on response.
+
+---
+
+## Failure Handling
+
+If any phase produces unexpected results — malformed agent output, Modrinth API errors, agents returning empty or garbled Category Reports — invoke `superpowers:systematic-debugging` before retrying or escalating to the user.
+
+---
+
+## Common Mistakes
+
+- **Recommending mods without running compat-check** — every mod verdict and every gap candidate MUST have a verified compat status. This is the #1 failure mode.
+- **Trusting Modrinth search facets as proof of exact-version builds** — the `versions:X` facet uses minor-series matching, not exact matching. Always call the `/version` endpoint to confirm.
+- **Writing files before user approval** — Phases 1-4 are strictly read-only. No decision doc writes until the user responds to the upgrade plan.
+- **Recommending mods that violate vanilla+ profile** — never recommend minimap, world map, block/entity info overlays, or mods that reveal non-vanilla information.
 
 ---
 

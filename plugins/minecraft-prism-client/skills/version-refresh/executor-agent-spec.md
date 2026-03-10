@@ -4,6 +4,10 @@ Background agent dispatched after version-refresh Step 5. Receives: decision doc
 
 **Model note:** This agent makes many judgment calls (version lookups, naming, failure handling). For best results, run the parent session with Opus (`/model`).
 
+**REQUIRED SUB-SKILL:** superpowers:dispatching-parallel-agents — use for Steps 6 and 7 (download agents, config research agents).
+
+**REQUIRED SUB-SKILL:** superpowers:systematic-debugging — invoke when any step produces unexpected results (download failures, config errors, boot verification failures not covered by known patterns) before retrying or escalating.
+
 ---
 
 ## Steps
@@ -57,7 +61,7 @@ If any download agent returns `FAILED`: report the failure to the user and stop.
 
 These two can happen concurrently:
 
-- **Config research (parallel):** For each `ADD` or `REPLACE`, dispatch one config research agent with `run_in_background: true`. Read `../minecraft-prism-mods-meta-refresh/config-research-agent.md` for the agent spec. Resolve this relative path against this skill's base directory before dispatching.
+- **Config research (parallel):** For each `ADD` or `REPLACE`, dispatch one config research agent with `run_in_background: true`. Read `../meta-refresh/config-research-agent.md` for the agent spec. Resolve this relative path against this skill's base directory before dispatching.
 - **ENABLEs (instant):** For each `ENABLE`, rename `<mod>.jar.disabled` → `<mod>.jar`.
 
 ### 8. Wait for all config research agents to complete.

@@ -1,12 +1,12 @@
 ---
-name: minecraft-prism-mods-full-audit
+name: audit
 description: Use when the user wants to do a full refresh of their Prism Launcher modset in one session — both auditing mod quality (replacing outdated or superseded mods) and updating all mod versions to their latest compatible builds.
 ---
 
-REQUIRED SUB-SKILL: minecraft-prism-mods-meta-refresh
-REQUIRED SUB-SKILL: minecraft-prism-mods-version-refresh
+REQUIRED SUB-SKILL: meta-refresh
+REQUIRED SUB-SKILL: version-refresh
 
-# Skill: Minecraft Prism Mods Full Audit
+# Minecraft Prism Client Audit
 
 Entry point for a full modset refresh. Creates the shared decision doc, then invokes meta-refresh. The skills chain automatically: meta-refresh → version-refresh → background executor.
 
@@ -26,7 +26,7 @@ Ask for any of these not already provided:
 ## Flow
 
 ```
-full-audit
+audit
   └─ creates decision doc
   └─ invokes meta-refresh
        └─ research → upgrade plan → user approves → writes meta decisions to doc
@@ -55,9 +55,9 @@ Modloader: <loader>
 
 ## Step 2 — Invoke meta-refresh
 
-Say: "Invoking `minecraft-prism-mods-meta-refresh`."
+Say: "Invoking `meta-refresh`."
 
-Invoke `minecraft-prism-mods-meta-refresh`, passing:
+Invoke `meta-refresh`, passing:
 - Instance name
 - MC version
 - Modloader
@@ -65,4 +65,11 @@ Invoke `minecraft-prism-mods-meta-refresh`, passing:
 - Server SSH host (if provided)
 - Decision doc path (`./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md`)
 
-Meta-refresh chains to version-refresh, which chains to the executor. No further action needed from full-audit.
+Meta-refresh chains to version-refresh, which chains to the executor. No further action needed from audit.
+
+---
+
+## Common Mistakes
+
+- **Skipping inputs** — always ask for any missing values. Don't assume MC version or instance name.
+- **Wrong decision doc path** — must be `./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md`, not in the instance directory or elsewhere.

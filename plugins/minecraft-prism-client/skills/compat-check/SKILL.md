@@ -1,5 +1,5 @@
 ---
-name: mc-mod-compat-check
+name: compat-check
 description: Use when verifying whether a Minecraft mod has a build for a specific MC version and modloader before recommending KEEP, ADD, REPLACE, or REMOVE for that mod.
 ---
 

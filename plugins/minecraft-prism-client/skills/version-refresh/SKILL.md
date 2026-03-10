@@ -1,7 +1,9 @@
 ---
-name: minecraft-prism-mods-version-refresh
+name: version-refresh
 description: Use when the user wants to check their Prism Launcher Fabric (or NeoForge) modpack for mod version updates, find newer JAR files across Modrinth / CurseForge / GitHub, and optionally install approved updates into a cloned instance.
 ---
+
+REQUIRED SUB-SKILL: superpowers:dispatching-parallel-agents
 
 # Minecraft Prism Mods Version Refresh
 
@@ -31,6 +33,8 @@ Scan: `C:/Users/leole/AppData/Roaming/PrismLauncher/instances/<instance-name>/.m
 - Track which files are `.disabled`.
 
 ### Step 2 — Dispatch one agent per mod (parallel, background)
+
+**REQUIRED SUB-SKILL: superpowers:dispatching-parallel-agents** — use it to dispatch and manage all version agents.
 
 Dispatch all agents with `run_in_background: true`. Wait for all to complete before Step 3.
 
@@ -98,3 +102,17 @@ After writing the decision doc, say:
 - **If yes:** Say "Dispatching executor." and dispatch a background agent with `run_in_background: true`.
 
 Read `./executor-agent-spec.md` (in this skill's directory) for the full executor spec. Pass the executor: decision doc path, instance name, MC version, modloader.
+
+---
+
+## Failure Handling
+
+If any step produces unexpected results — version agents returning malformed reports, API response format changes, changelog agents failing to parse releases — invoke `superpowers:systematic-debugging` before retrying or escalating to the user.
+
+---
+
+## Common Mistakes
+
+- **Guessing version numbers** — always use actual API responses. Never fabricate or infer version strings.
+- **Writing decision doc before user approval** — Steps 1-4 are strictly read-only. No writes until the user responds.
+- **Dispatching executor before user confirms** — always ask "yes / cancel" before launching the background executor.

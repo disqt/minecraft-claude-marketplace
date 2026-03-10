@@ -6,8 +6,8 @@
   },
   "plugins": [
     {
-      "name": "prism-modpack-audit",
-      "source": "./plugins/prism-modpack-audit",
+      "name": "minecraft-prism-client",
+      "source": "./plugins/minecraft-prism-client",
       "description": "Audit and update Prism Launcher Fabric modpacks — find better mods, check versions, apply changes, publish to friends",
       "version": "1.0.0"
     }

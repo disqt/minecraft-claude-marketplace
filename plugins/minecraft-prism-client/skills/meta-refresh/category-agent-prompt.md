@@ -8,9 +8,9 @@ Use this file to construct each Phase 2 agent's prompt. Replace `{placeholders}`
 
 Every category agent prompt MUST start with:
 
-> Read the file `{resolved-path-to}/mc-mod-compat-check/SKILL.md` and follow its procedure for every mod you assess and every gap candidate you recommend.
+> Read the file `{resolved-path-to}/compat-check/SKILL.md` and follow its procedure for every mod you assess and every gap candidate you recommend.
 
-**Path resolution:** Replace `{resolved-path-to}` with the absolute path to `../mc-mod-compat-check/SKILL.md` resolved from this skill's base directory.
+**Path resolution:** Replace `{resolved-path-to}` with the absolute path to `../compat-check/SKILL.md` resolved from this skill's base directory.
 
 Then inject:
 
@@ -40,7 +40,7 @@ If the category facet returns 0 results, try `utility` or search by keyword.
 ```
 GET https://api.modrinth.com/v2/search?query={mod-name}&facets=[["versions:{mc-version}"],["project_type:mod"]]
 ```
-Get: download count, `date_modified`, project slug. Then run the Mod Compatibility Check (from mc-mod-compat-check skill) for each mod.
+Get: download count, `date_modified`, project slug. Then run the Mod Compatibility Check (from compat-check skill) for each mod.
 
 **Step 3 — Fetch DisruptiveBuilds REFINED modlist:**
 ```
@@ -96,5 +96,5 @@ Return a Category Report in EXACTLY this format:
 ### Raw signals used
 - Modrinth top-10 for {category} + {mc-version} (by downloads): [list names]
 - DisruptiveBuilds REFINED inclusion checked: Yes
-- Compatibility verified via mc-mod-compat-check for all mods and candidates
+- Compatibility verified via compat-check for all mods and candidates
 ```

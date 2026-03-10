@@ -1,5 +1,5 @@
 {
-  "name": "prism-modpack-audit",
+  "name": "minecraft-prism-client",
   "description": "Audit and update Prism Launcher Fabric modpacks — find better mods, check versions, apply changes, publish to friends",
   "author": {
     "name": "disqt"
