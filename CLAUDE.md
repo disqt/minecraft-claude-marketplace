@@ -35,7 +35,7 @@ plugins/
         assets/                   # HTML viewer templates (2D + 3D)
         references/               # Component docs, circuit catalog, Java mechanics
       redstone-workspace/         # Skill development: evals and iteration results
-  minecraft-papermc-server/       # Server-side plugin management (v1.0.2)
+  minecraft-papermc-server/       # Server-side plugin management (v1.0.3)
     .claude-plugin/plugin.json    # Plugin metadata
     agents/
       server-category-agent.md    # Agent definition for parallel category audits
@@ -135,7 +135,12 @@ Four-phase pipeline with staging verification and live cutover:
 
 ## Version Bumps
 
-When bumping a plugin version in `plugins/<name>/.claude-plugin/plugin.json`, also update the matching entry in `.claude-plugin/marketplace.json` and the version shown in the tree above.
+Any change to a plugin's skills, agents, or prompts **must** include a version bump. Use semver: patch for fixes/tweaks, minor for new features or behaviour changes, major for breaking changes.
+
+When bumping a plugin version, update all three locations:
+1. `plugins/<name>/.claude-plugin/plugin.json`
+2. `.claude-plugin/marketplace.json`
+3. The version shown in the repository structure tree above
 
 ## Decision Doc
 
