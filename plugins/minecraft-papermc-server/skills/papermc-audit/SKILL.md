@@ -16,8 +16,8 @@ Entry point for a full server plugin refresh. Creates the shared decision doc, t
 Ask for any of these not already provided:
 
 - **Production SSH alias** — SSH alias for the live server (e.g. `minecraft`)
-- **Server files path** — path to `serverfiles/` on production. Auto-detect: `ssh <alias> "ls /home/*/serverfiles/paper.jar 2>/dev/null || ls /home/*/serverfiles/server.jar 2>/dev/null"` and infer from result
-- **LGSM script path** — path to LGSM entry point. Auto-detect: `ssh <alias> "ls /home/*/pmcserver 2>/dev/null || ls /home/*mcserver 2>/dev/null"`
+- **Server files path** — path to `serverfiles/` on production. Auto-detect: `ssh <alias> "ls /home/*/serverfiles/paper.jar 2>/dev/null || ls /home/*/serverfiles/server.jar 2>/dev/null"` and infer from result. If no match, ask: "I couldn't find paper.jar on the server. What's the full path to your server files directory?"
+- **LGSM script path** — path to LGSM entry point. Auto-detect: `ssh <alias> "ls /home/*/pmcserver 2>/dev/null || ls /home/*mcserver 2>/dev/null"`. If no match, ask: "I couldn't find an LGSM script. What's the path, or are you not using LGSM?"
 - **Staging SSH alias** — SSH alias for the staging/test server
 - **Staging files path** — path to server files on staging host
 - **Staging boot command** — command to start PaperMC on staging (e.g. `java -jar paper.jar nogui`). Staging may not use LGSM

@@ -29,7 +29,9 @@ SSH into production:
 - Read `{server-files-path}/version_history.json` — extract current MC version and Paper build number
 - List `{server-files-path}/plugins/*.jar` — build installed plugin list
 - For each plugin JAR, extract version from filename or from `plugin.yml` inside the JAR:
-  `ssh <alias> "cd {server-files-path} && jar -xf plugins/<plugin>.jar plugin.yml && grep '^version:' plugin.yml && rm plugin.yml"`
+  ```bash
+  ssh <alias> "unzip -p {server-files-path}/plugins/<plugin>.jar plugin.yml 2>/dev/null | grep '^version:'"
+  ```
 
 ### Phase 2 — Query PaperMC API
 
@@ -100,6 +102,6 @@ If PaperMC API is unreachable or returns unexpected responses, invoke `superpowe
 ## Common Mistakes
 
 - **Assuming version_history.json format** — always parse, don't assume structure. It's a JSON array of version entries.
-- **Comparing version strings lexically** — MC versions like 1.21.11 vs 1.21.2 need semantic comparison (1.21.11 > 1.21.2)
+- **Comparing version strings lexically** — MC versions like 1.21.11 vs 1.21.2 need semantic comparison (split on `.`, compare each segment as integers: `1.21.11 > 1.21.2` because `11 > 2`)
 - **Skipping compat-check for "obviously compatible" plugins** — run it on every plugin, no exceptions
 - **Not extracting plugin versions** — needed for the report. Use `plugin.yml` inside JARs when filename doesn't contain version info

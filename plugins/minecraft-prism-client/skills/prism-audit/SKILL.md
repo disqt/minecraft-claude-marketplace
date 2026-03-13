@@ -12,7 +12,7 @@ Entry point for a full modset refresh. Creates the shared decision doc, then inv
 
 ## Paths
 
-Detect the user's OS and resolve these automatically. Ask only if detection fails.
+Detect the user's OS and resolve these automatically. If detection fails (path doesn't exist, `prismlauncher` not in PATH), ask: "I couldn't auto-detect your Prism Launcher install. What's the path to your instances directory?"
 
 | Variable | Windows | Linux | macOS |
 |----------|---------|-------|-------|
