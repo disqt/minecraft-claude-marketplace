@@ -10,7 +10,7 @@ A Claude Code **plugin marketplace** (`disqt/minecraft`) for Minecraft server an
 .claude-plugin/marketplace.json   # Marketplace registry — lists installable plugins
 redstone-viewer/                  # Deployed HTML viewers (served at disqt.com/minecraft/redstone/)
 plugins/
-  minecraft-prism-client/         # Client-side modpack management (v1.0.0)
+  minecraft-prism-client/         # Client-side modpack management (v1.0.2)
     .claude-plugin/plugin.json    # Plugin metadata
     agents/
       mc-category-agent.md        # Agent definition for parallel category audits
@@ -35,7 +35,7 @@ plugins/
         assets/                   # HTML viewer templates (2D + 3D)
         references/               # Component docs, circuit catalog, Java mechanics
       redstone-workspace/         # Skill development: evals and iteration results
-  minecraft-papermc-server/       # Server-side plugin management (v1.0.0)
+  minecraft-papermc-server/       # Server-side plugin management (v1.0.2)
     .claude-plugin/plugin.json    # Plugin metadata
     agents/
       server-category-agent.md    # Agent definition for parallel category audits
@@ -82,7 +82,7 @@ Four-phase pipeline with staging verification and live cutover:
 1. **paper-check** — queries PaperMC API for newer versions, runs compat-check on all plugins against target version
 2. **meta-refresh** — categorizes plugins, dispatches parallel category agents, surfaces wildcards, produces upgrade plan
 3. **version-refresh** — dispatches parallel version/changelog agents, produces version upgrade plan
-4. **executor** (foreground) — prepares staging server, downloads plugins, researches configs, boot-verifies on staging, then cuts over to production with player warning and LGSM backup/rollback safety
+4. **executor** (foreground) — prepares staging server, downloads plugins, researches configs, boot-verifies on staging, then offers cutover: apply now, push to `plugins/update/` folder, or abandon
 
 ### Shared design constraints
 
@@ -90,6 +90,7 @@ Four-phase pipeline with staging verification and live cutover:
 - **compat-check is mandatory** — every verdict and gap recommendation must have verified API compatibility. Search facets use minor-series matching, not exact-version matching
 - **Vanilla+ profile** — never recommend minimap, world map, block/entity info overlays, or mods/plugins revealing non-vanilla information. Server: no economy, minigames, custom enchantments
 - **Host-agnostic paths** — client skills detect OS and resolve `{PRISM_INSTANCES}` and `{PRISM_EXE}` at runtime. Server skills use runtime SSH inputs. Never hardcode OS-specific or host-specific paths
+- **Numbered prompts** — all user-facing choices use numbered options (e.g. `1. **Proceed** 2. **Cancel**`), never yes/cancel or A/B letters
 
 ## Skill Invocations
 
@@ -131,6 +132,10 @@ Four-phase pipeline with staging verification and live cutover:
 - **Hangar API v1** (`https://hangar.papermc.io/api/v1/`) — primary source for server plugin search, version lookup, and compatibility verification
 - **PaperMC API v2** (`https://api.papermc.io/v2/`) — Paper version checks and build downloads
 - **CurseForge / GitHub** — fallback sources when mods/plugins aren't on Modrinth or Hangar
+
+## Version Bumps
+
+When bumping a plugin version in `plugins/<name>/.claude-plugin/plugin.json`, also update the matching entry in `.claude-plugin/marketplace.json` and the version shown in the tree above.
 
 ## Decision Doc
 

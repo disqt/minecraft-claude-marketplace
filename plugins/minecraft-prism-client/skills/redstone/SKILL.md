@@ -1,6 +1,6 @@
 ---
 name: redstone
-description: Design and explain Minecraft Java Edition redstone circuits and contraptions. Use this skill whenever the user asks about redstone, wants to build a redstone contraption (doors, farms, clocks, logic gates, item sorters, elevators, traps, hidden entrances, etc.), needs help understanding how a redstone component works, wants to debug a redstone build that isn't working, or asks anything related to redstone mechanics, signal strength, quasi-connectivity, comparators, repeaters, pistons, observers, or hoppers. Also trigger when the user mentions wanting to automate something in Minecraft, since automation almost always involves redstone.
+description: Use when the user asks about Minecraft Java Edition redstone — building contraptions (doors, farms, clocks, sorters, elevators, traps), understanding components (comparators, repeaters, pistons, observers, hoppers), debugging broken builds, or automating something in-game.
 ---
 
 # Redstone Build Assistant
@@ -113,6 +113,7 @@ The grid represents a top-down view of one Y-level. Row 0 is the **north** edge,
 3. Replace all `{{PLACEHOLDERS}}` with actual values
 4. Write the completed HTML to `/tmp/redstone-<build-name>.html`
 5. Open it with: `open /tmp/redstone-<build-name>.html` (macOS) or `xdg-open /tmp/redstone-<build-name>.html` (Linux)
+6. To deploy to VPS: `scp /tmp/redstone-<build-name>.html dev:/home/dev/redstone-viewer/` — served at `https://disqt.com/minecraft/redstone/<build-name>.html`
 
 ### Orientation convention
 
