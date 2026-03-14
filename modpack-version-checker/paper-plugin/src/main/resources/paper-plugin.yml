@@ -1,0 +1,6 @@
+name: DisqtVersion
+version: '1.0.0'
+main: com.disqt.version.DisqtVersionPlugin
+description: Notifies players when their modpack is outdated
+author: disqt
+api-version: '1.21'
