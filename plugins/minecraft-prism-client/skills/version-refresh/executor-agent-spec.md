@@ -112,6 +112,14 @@ Rename the instance folder from `<name>.beta` to `<name-without-.beta>`. Remind 
 
 After promote, zip and upload the instance so friends can download it. Requires: `{VPS_SSH}` (SSH alias), `{VPS_PRISM_DIR}` (remote dir), `{MODPACK_BASE_URL}` (public URL).
 
+**12-pre. Update modpack-version.txt:**
+
+Extract the version number from the instance name (e.g. `1.21.11 v2.2` → `2.2`) and write it to `{PRISM_INSTANCES}/<instance-name>/.minecraft/modpack-version.txt`. This file is read by the disqt-version Fabric mod to report the client's modpack version to the server.
+
+```bash
+echo "<version>" > "{PRISM_INSTANCES}/<instance-name>/.minecraft/modpack-version.txt"
+```
+
 **12a. Zip with exclusions:**
 
 ```bash
@@ -153,20 +161,43 @@ ssh {VPS_SSH} "cd {VPS_PRISM_DIR} && ln -sf '<instance-name>.zip' latest.zip"
 
 **12d. Update `manifest.json`:**
 
-Read the current manifest from the VPS, prepend the new version to the `versions` array, update `latest`, and write it back:
+Read the current manifest from the VPS, prepend the new version to the `versions` array, update `latest`, and write it back. Also read `## Changelog summary` from the decision doc and include it as a `"changelog"` array.
+
+First, extract changelog lines from the decision doc locally:
+
+```python
+# Run locally to extract changelog lines
+changelog = []
+with open('<decision-doc-path>') as f:
+    in_changelog = False
+    for line in f:
+        if line.strip() == '## Changelog summary':
+            in_changelog = True
+            continue
+        if in_changelog:
+            if line.startswith('## '):
+                break
+            stripped = line.strip()
+            if stripped.startswith('- '):
+                changelog.append(stripped[2:])
+```
+
+Then pass the changelog to the remote manifest update:
 
 ```bash
 ssh {VPS_SSH} "python3 -c \"
 import json, os
 path = '{VPS_PRISM_DIR}/manifest.json'
 data = json.load(open(path)) if os.path.exists(path) else {'latest':{}, 'versions':[]}
+changelog = <changelog-json-array>
 entry = {
   'version': '<instance-name>',
   'file': '<instance-name>.zip',
   'date': '$(date +%Y-%m-%d)',
   'mc': '<mc-version>',
   'modloader': '<modloader>',
-  'size': '<size in MB> MB'
+  'size': '<size in MB> MB',
+  'changelog': changelog
 }
 data['latest'] = entry
 data['versions'].insert(0, entry)
@@ -174,6 +205,8 @@ json.dump(data, open(path,'w'), indent=2)
 print('manifest updated')
 \""
 ```
+
+Replace `<changelog-json-array>` with the JSON-encoded list (e.g. `["Added Ping Wheel", "Updated shaders"]`). If no changelog section exists in the decision doc, use `[]`.
 
 Compute `<size in MB>` from the zip file size before uploading.
 

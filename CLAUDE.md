@@ -10,7 +10,7 @@ A Claude Code **plugin marketplace** (`disqt/minecraft`) for Minecraft server an
 .claude-plugin/marketplace.json   # Marketplace registry — lists installable plugins
 redstone-viewer/                  # Deployed HTML viewers (served at disqt.com/minecraft/redstone/)
 plugins/
-  minecraft-prism-client/         # Client-side modpack management (v1.0.2)
+  minecraft-prism-client/         # Client-side modpack management (v1.0.3)
     .claude-plugin/plugin.json    # Plugin metadata
     agents/
       mc-category-agent.md        # Agent definition for parallel category audits

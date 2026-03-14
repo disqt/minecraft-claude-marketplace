@@ -90,6 +90,22 @@ Create `./minecraft-audits/` if it doesn't exist. Create the file if it doesn't 
 
 Use `approved`, `skipped`, or `cancelled` in the Decision column.
 
+### Step 5.5 — Write changelog summary to decision doc
+
+From the upgrade plan's "Key changes" column (Step 3), compile a changelog summary of all approved changes. Order entries by user impact (most notable first). Include additions, replacements, updates, and removals.
+
+Append to the decision doc:
+
+```md
+## Changelog summary
+- Added Ping Wheel for in-game waypoint sharing
+- Updated Complementary shaders and Euphoria Patches
+- Replaced AdvancementInfo with BetterAdvancements
+- Removed redundant MemoryLeakFix (fixed upstream in Fabric)
+```
+
+Each line should be a concise, player-facing description (not mod slugs or version numbers). Write as if explaining to a friend what changed. No line limit — include all notable changes.
+
 ### Step 6 — Dispatch background executor
 
 After writing the decision doc, say:
