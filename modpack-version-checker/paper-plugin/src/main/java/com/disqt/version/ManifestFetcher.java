@@ -23,9 +23,14 @@ public class ManifestFetcher {
     private final int refreshMinutes;
     private final HttpClient httpClient;
 
-    private volatile String latestVersion = null;
-    private volatile List<String> changelog = Collections.emptyList();
+    private volatile Snapshot snapshot = Snapshot.EMPTY;
     private BukkitTask refreshTask;
+
+    record VersionEntry(String version, List<String> changelog) {}
+
+    record Snapshot(String latestVersion, List<VersionEntry> versions) {
+        static final Snapshot EMPTY = new Snapshot(null, Collections.emptyList());
+    }
 
     public ManifestFetcher(Plugin plugin, String manifestUrl, int refreshMinutes) {
         this.plugin = plugin;
@@ -65,10 +70,11 @@ public class ManifestFetcher {
             }
 
             JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
-            JsonObject latest = json.getAsJsonObject("latest");
-
-            latestVersion = extractVersion(latest.get("version").getAsString());
-            changelog = parseChangelog(response.body());
+            List<VersionEntry> versions = parseVersions(json.getAsJsonArray("versions"));
+            String latestVersion = extractVersion(
+                json.getAsJsonObject("latest").get("version").getAsString()
+            );
+            snapshot = new Snapshot(latestVersion, versions);
 
             plugin.getLogger().info("Manifest loaded: latest version " + latestVersion);
         } catch (Exception e) {
@@ -84,27 +90,79 @@ public class ManifestFetcher {
         return fullVersion.trim();
     }
 
-    static List<String> parseChangelog(String jsonBody) {
-        try {
-            JsonObject json = JsonParser.parseString(jsonBody).getAsJsonObject();
-            JsonObject latest = json.getAsJsonObject("latest");
-            if (latest.has("changelog") && latest.get("changelog").isJsonArray()) {
-                JsonArray arr = latest.getAsJsonArray("changelog");
-                List<String> lines = new ArrayList<>();
-                for (int i = 0; i < arr.size(); i++) {
-                    lines.add(arr.get(i).getAsString());
+    static List<VersionEntry> parseVersions(JsonArray versions) {
+        if (versions == null) return Collections.emptyList();
+        List<VersionEntry> result = new ArrayList<>();
+        for (int i = 0; i < versions.size(); i++) {
+            JsonObject v = versions.get(i).getAsJsonObject();
+            String version = extractVersion(v.get("version").getAsString());
+            List<String> changelog = List.of();
+            if (v.has("changelog") && v.get("changelog").isJsonArray()) {
+                JsonArray arr = v.getAsJsonArray("changelog");
+                List<String> lines = new ArrayList<>(arr.size());
+                for (int j = 0; j < arr.size(); j++) {
+                    lines.add(arr.get(j).getAsString());
                 }
-                return Collections.unmodifiableList(lines);
+                changelog = List.copyOf(lines);
             }
-        } catch (Exception ignored) {}
-        return Collections.emptyList();
+            result.add(new VersionEntry(version, changelog));
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    static boolean isOlderVersion(String client, String latest) {
+        try {
+            String[] clientParts = client.split("\\.");
+            String[] latestParts = latest.split("\\.");
+            int len = Math.max(clientParts.length, latestParts.length);
+            for (int i = 0; i < len; i++) {
+                int c = i < clientParts.length ? Integer.parseInt(clientParts[i]) : 0;
+                int l = i < latestParts.length ? Integer.parseInt(latestParts[i]) : 0;
+                if (c < l) return true;
+                if (c > l) return false;
+            }
+            return false;
+        } catch (NumberFormatException e) {
+            return !client.equals(latest);
+        }
+    }
+
+    /**
+     * Round-robin changelog across all versions newer than clientVersion.
+     * Each version's changelog is ordered by importance, so round-robin
+     * picks the most important entry from each missed version first.
+     */
+    static List<String> changelogSince(List<VersionEntry> allVersions,
+                                       String clientVersion, int maxLines) {
+        List<List<String>> changelogs = new ArrayList<>();
+        for (VersionEntry entry : allVersions) {
+            if (isOlderVersion(clientVersion, entry.version()) && !entry.changelog().isEmpty()) {
+                changelogs.add(entry.changelog());
+            }
+        }
+
+        List<String> result = new ArrayList<>();
+        int round = 0;
+        while (result.size() < maxLines) {
+            boolean added = false;
+            for (List<String> cl : changelogs) {
+                if (round < cl.size()) {
+                    result.add(cl.get(round));
+                    added = true;
+                    if (result.size() >= maxLines) break;
+                }
+            }
+            if (!added) break;
+            round++;
+        }
+        return result;
+    }
+
+    public List<String> getChangelogSince(String clientVersion, int maxLines) {
+        return changelogSince(snapshot.versions(), clientVersion, maxLines);
     }
 
     public String getLatestVersion() {
-        return latestVersion;
-    }
-
-    public List<String> getChangelog() {
-        return changelog;
+        return snapshot.latestVersion();
     }
 }

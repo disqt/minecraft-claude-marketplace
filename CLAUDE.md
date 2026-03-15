@@ -9,6 +9,9 @@ A Claude Code **plugin marketplace** (`disqt/minecraft`) for Minecraft server an
 ```
 .claude-plugin/marketplace.json   # Marketplace registry — lists installable plugins
 redstone-viewer/                  # Deployed HTML viewers (served at disqt.com/minecraft/redstone/)
+modpack-version-checker/            # Modpack version checker (Paper plugin + Fabric mod)
+  paper-plugin/                     # Server-side: sends version to clients on join
+  fabric-mod/                       # Client-side: receives version, shows update toast
 plugins/
   minecraft-prism-client/         # Client-side modpack management (v1.0.3)
     .claude-plugin/plugin.json    # Plugin metadata
@@ -70,6 +73,7 @@ plugins/
           analyze_spark.py        # Bundled parser: fetches JSON, computes per-mod hotspots
         references/
           diagnosis-patterns.md   # FPS diagnosis catalog, JVM args, mod recommendations
+      spark-analyze-workspace/    # Skill development: evals and iteration results
 ```
 
 ## Architecture
@@ -135,6 +139,9 @@ Four-phase pipeline with staging verification and live cutover:
 |-------|------|
 | Redstone skill (in-progress) | `docs/in-progress-redstone-skill.md` |
 | 3D voxel viewer plan | `docs/plans/2026-03-10-3d-voxel-viewer.md` |
+| PaperMC server skill plan | `docs/superpowers/plans/2026-03-12-papermc-server-plugin-skill.md` |
+| Modpack version checker plan | `docs/superpowers/plans/2026-03-14-modpack-version-checker.md` |
+| Modpack version checker design | `docs/superpowers/specs/2026-03-14-modpack-version-checker-design.md` |
 
 ## Deploy
 
@@ -182,6 +189,9 @@ Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
 - Build: `cd modpack-version-checker/paper-plugin && ./gradlew build`
 - JAR: `build/libs/DisqtVersion-1.0.0.jar`
 - Deploy: `scp <jar> minecraft:/home/minecraft/serverfiles/plugins/` then `plugman reload DisqtVersion`
+- Fabric mod source: `modpack-version-checker/fabric-mod/`
+- Fabric build: `cd modpack-version-checker/fabric-mod && ./gradlew build`
+- Fabric JAR goes into Prism instance `mods/` folder
 - Uses `<` version comparison (not `!=`) to avoid false positives from stale manifest cache
 
 ### Known Issues
