@@ -1,2 +1,7 @@
 .worktrees/
 minecraft-audits/
+
+# IDE
+.project
+.classpath
+.settings/
