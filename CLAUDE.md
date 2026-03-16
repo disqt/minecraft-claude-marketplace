@@ -180,7 +180,7 @@ Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
 
 ### Prism Launcher Instances
 - Path: `C:\Users\leole\AppData\Roaming\PrismLauncher\instances\`
-- Current modpack: `1.21.11 v2.5` (Fabric 0.18.4, MC 1.21.11, 135 mods)
+- Current modpack: `1.21.11 v2.6` (Fabric 0.18.4, MC 1.21.11, 144 mods)
 - JVM: Shenandoah GC with brucethemoose client-tuned flags
 - Modpack hosted at: `https://disqt.com/minecraft/modpack/` (VPS path: `/home/dev/prism/`)
 
@@ -202,6 +202,9 @@ Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
 - `logWorldGenEventToFile = "ERROR"`, `logWorldGenChunkLoadEventToFile = "ERROR"`
 - `overrideVanillaGLLogger = false` (suppresses Iris+DH GL texture error stacktrace)
 - Do NOT downgrade to 2.4.3b -- loses stutter fix for chunk border crossing
+
+#### Spark swap false alarm on Windows
+Spark reports Windows page file *allocated* size as "swap used", not actual usage. A "38 GB swap" reading is normal — check actual usage with `Get-CimInstance Win32_PageFileUsage` (CurrentUsage field). Only flag if CurrentUsage is high.
 
 ## Key APIs Used
 
