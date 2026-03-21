@@ -4,7 +4,7 @@
 import struct
 from pathlib import Path
 
-from scripts.migrate_nbt import extract_chunk_tags
+from migrate_nbt import extract_chunk_tags
 
 HEADER_ENTRIES = 1024
 ENTRY_SIZE = 4  # bytes per location entry
@@ -18,7 +18,8 @@ def count_chunks_in_region(region_path: Path) -> int:
     Each region file starts with 1024 4-byte location entries.
     A non-zero entry means the chunk exists.
     """
-    data = region_path.read_bytes()[:HEADER_SIZE]
+    with region_path.open("rb") as f:
+        data = f.read(HEADER_SIZE)
     if len(data) < HEADER_SIZE:
         return 0
     count = 0
@@ -72,8 +73,8 @@ def analyze_region(region_path: Path, threshold: int) -> dict:
             continue
         compressed_data = data[compressed_start:compressed_end]
         tags = extract_chunk_tags(compressed_data, compression)
-        inhabited = tags.get("InhabitedTime") or 0
-        dv = tags.get("DataVersion") or 0
+        inhabited = tags["InhabitedTime"] if tags.get("InhabitedTime") is not None else 0
+        dv = tags["DataVersion"] if tags.get("DataVersion") is not None else 0
         local_x = i % 32
         local_z = i // 32
         chunk_x = region_x * 32 + local_x

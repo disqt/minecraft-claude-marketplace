@@ -1,4 +1,4 @@
-from scripts.migrate_display import format_stats_table, format_report, format_safety_abort
+from migrate_display import format_stats_table, format_report, format_safety_abort
 
 
 def test_format_stats_table_single_dimension():

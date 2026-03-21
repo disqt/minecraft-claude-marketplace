@@ -1,7 +1,7 @@
 # tests/test_migrate_nbt.py
 from pathlib import Path
 
-from scripts.migrate_nbt import extract_chunk_tags, inhabited_bucket
+from migrate_nbt import extract_chunk_tags, inhabited_bucket
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

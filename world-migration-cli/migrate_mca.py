@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from scripts.migrate_remote import dimension_region_subpath
+from migrate_remote import dimension_region_subpath
 
 
 def _base_command(

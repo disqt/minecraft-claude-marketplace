@@ -3,7 +3,7 @@
 import subprocess
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 # Compat: migrate_mca.py imports this for MCA Selector --region flag building
 DIMENSION_SUBPATHS = {
@@ -101,8 +101,9 @@ def detect_remote_layout(host: str, remote_world_path: str) -> DimensionPaths:
         paths.end = Path(vanilla_end)
 
     # PaperMC fallback (sibling dirs)
-    world_name = remote_world_path.rstrip("/").split("/")[-1]
-    parent = "/".join(remote_world_path.rstrip("/").split("/")[:-1])
+    posix = PurePosixPath(remote_world_path)
+    world_name = posix.name
+    parent = str(posix.parent)
 
     if paths.nether is None:
         paper_nether = f"{parent}/{world_name}_nether/DIM-1/region"
@@ -173,68 +174,3 @@ def download_world(
         local_region = local_world / subpath
         print(f"  Downloading {dim_name} region ({subpath})...", file=sys.stderr)
         _scp_recursive(host, f"{remote_region_path}/*", local_region)
-
-
-# Legacy helpers — kept for backwards compatibility with callers that used the
-# original build_scp_commands / run_scp_commands API.
-
-def build_scp_commands(
-    host: str,
-    remote_path: str,
-    local_path: str,
-    dimensions: list[str],
-) -> list[tuple[list[str], str]]:
-    """Build SCP commands to download world files.
-
-    Returns a list of (command_args, description) tuples.
-    Downloads region/* contents (not the directory itself) to avoid nested region/region/.
-    """
-    commands = []
-
-    # Always download level.dat
-    commands.append((
-        ["scp", f"{host}:{remote_path}/level.dat", f"{local_path}/level.dat"],
-        "level.dat",
-    ))
-
-    for dim in dimensions:
-        subpath = dimension_region_subpath(dim)
-        # Download region/* contents into local region/ dir (not the dir itself)
-        remote_region = f"{host}:{remote_path}/{subpath}/*"
-        local_region = f"{local_path}/{subpath}"
-        commands.append((
-            ["scp", "-r", remote_region, local_region],
-            f"{dim} region ({subpath})",
-        ))
-
-    return commands
-
-
-def run_scp_commands(
-    commands: list[tuple[list[str], str]],
-    local_path: Path,
-) -> None:
-    """Execute SCP commands, creating local directories as needed."""
-    for cmd_args, description in commands:
-        # Ensure parent directory exists for the target
-        target = Path(cmd_args[-1])
-        target.parent.mkdir(parents=True, exist_ok=True)
-
-        print(f"  Downloading {description}...", file=sys.stderr)
-        result = subprocess.run(cmd_args, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(
-                f"ERROR: SCP failed for {description}: {result.stderr}",
-                file=sys.stderr,
-            )
-            sys.exit(3)
-
-
-def check_ssh_connectivity(host: str) -> bool:
-    """Test SSH connectivity to the host. Returns True if reachable."""
-    result = subprocess.run(
-        ["ssh", "-o", "ConnectTimeout=5", host, "echo ok"],
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0 and "ok" in result.stdout

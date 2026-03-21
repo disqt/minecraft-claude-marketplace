@@ -1,5 +1,5 @@
 from pathlib import Path
-from scripts.migrate_mca import build_select_command, build_delete_command, count_selected_chunks
+from migrate_mca import build_select_command, build_delete_command, count_selected_chunks
 
 
 def test_build_select_overworld(tmp_path):

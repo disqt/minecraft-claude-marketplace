@@ -26,7 +26,7 @@ def setup_world(tmp_path, chunks=None):
 def test_full_pipeline_html(tmp_path):
     world = setup_world(tmp_path)
     html_out = tmp_path / "preview.html"
-    from scripts.migrate import run_pipeline, parse_args
+    from migrate import run_pipeline, parse_args
 
     args = parse_args([str(world), "--threshold", "120", "--html", str(html_out)])
     code = run_pipeline(args)
@@ -40,7 +40,7 @@ def test_full_pipeline_html(tmp_path):
 def test_full_pipeline_raw(tmp_path):
     world = setup_world(tmp_path)
     raw_out = tmp_path / "migration.bin"
-    from scripts.migrate import run_pipeline, parse_args
+    from migrate import run_pipeline, parse_args
 
     args = parse_args([str(world), "--threshold", "120", "--raw", str(raw_out)])
     code = run_pipeline(args)
@@ -55,7 +55,7 @@ def test_full_pipeline_raw(tmp_path):
 
 def test_full_pipeline_stats_only(tmp_path, capsys):
     world = setup_world(tmp_path)
-    from scripts.migrate import run_pipeline, parse_args
+    from migrate import run_pipeline, parse_args
 
     args = parse_args([str(world), "--threshold", "120"])
     code = run_pipeline(args)
@@ -70,7 +70,7 @@ def test_trim_actually_deletes_chunks(tmp_path):
         {"slot": 1, "inhabited_time": 50, "data_version": 3955},
         {"slot": 2, "inhabited_time": 0, "data_version": 3955},
     ])
-    from scripts.migrate import run_pipeline, parse_args
+    from migrate import run_pipeline, parse_args
 
     args = parse_args([
         str(world), "--threshold", "120", "--dangerously-perform-the-trim",
@@ -89,7 +89,7 @@ def test_safety_abort_blocks_trim(tmp_path):
         {"slot": i, "inhabited_time": 0, "data_version": 3955} for i in range(10)
     ])
     html_out = tmp_path / "preview.html"
-    from scripts.migrate import run_pipeline, parse_args
+    from migrate import run_pipeline, parse_args
 
     args = parse_args([
         str(world), "--threshold", "120",

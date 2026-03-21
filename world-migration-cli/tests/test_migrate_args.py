@@ -1,5 +1,5 @@
 import pytest
-from scripts.migrate import parse_args
+from migrate import parse_args
 
 
 def test_local_world_with_threshold():

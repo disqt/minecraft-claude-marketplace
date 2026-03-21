@@ -1,6 +1,6 @@
 # tests/test_migrate_regions.py
 from pathlib import Path
-from scripts.migrate_regions import count_chunks_in_region, count_chunks_in_directory
+from migrate_regions import count_chunks_in_region, count_chunks_in_directory
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -30,7 +30,7 @@ def test_count_chunks_nonexistent_dir(tmp_path):
 # analyze_region / analyze_dimension tests
 # ---------------------------------------------------------------------------
 
-from scripts.migrate_regions import analyze_region, analyze_dimension
+from migrate_regions import analyze_region, analyze_dimension
 
 
 def make_region_with_chunks(path, chunks):

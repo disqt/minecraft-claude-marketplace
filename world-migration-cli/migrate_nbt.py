@@ -5,7 +5,6 @@ import io
 import math
 import struct
 import zlib
-from typing import Optional
 
 # NBT tag type IDs
 _TAG_END = 0
@@ -170,8 +169,8 @@ def extract_chunk_tags(
         # Scan root compound
         root = _scan_compound(buf)
 
-        data_version: Optional[int] = root.get("DataVersion")
-        inhabited_time: Optional[int] = root.get("InhabitedTime")
+        data_version: int | None = root.get("DataVersion")
+        inhabited_time: int | None = root.get("InhabitedTime")
 
         # Pre-1.18: InhabitedTime lives inside the Level sub-compound
         if inhabited_time is None and "Level" in root:

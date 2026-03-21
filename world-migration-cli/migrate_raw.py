@@ -5,7 +5,7 @@ import struct
 from datetime import datetime, timezone
 from pathlib import Path
 
-from scripts.migrate_nbt import inhabited_bucket
+from migrate_nbt import inhabited_bucket
 
 
 def _dimension_suffix(name: str) -> str:

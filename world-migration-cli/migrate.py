@@ -5,6 +5,11 @@ import argparse
 import sys
 from pathlib import Path
 
+# Allow running as `python migrate.py` from within world-migration-cli/
+# or `python world-migration-cli/migrate.py` from repo root
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse and validate command-line arguments."""
@@ -95,21 +100,28 @@ def _trim_pure_python(dimensions, layout, dims):
     If all 1024 entries in a region file become zero, delete the .mca file.
     """
     import struct
+    from collections import defaultdict
 
     for dim in dims:
         region_dir = layout.region_dir(dim)
         if region_dir is None:
             continue
         grid = dimensions[dim]["grid"]
-        chunks_to_delete = {k for k, v in grid.items() if v["delete"]}
-        for mca_file in sorted(region_dir.glob("r.*.*.mca")):
+        # Index chunks by region coords for O(1) lookup per region file
+        by_region = defaultdict(list)
+        for (cx, cz), v in grid.items():
+            if v["delete"]:
+                by_region[(cx // 32, cz // 32)].append((cx, cz))
+
+        for mca_file in region_dir.glob("r.*.*.mca"):
             parts = mca_file.stem.split(".")
             region_x, region_z = int(parts[1]), int(parts[2])
+            region_chunks = by_region.get((region_x, region_z))
+            if not region_chunks:
+                continue
             data = bytearray(mca_file.read_bytes())
             modified = False
-            for cx, cz in list(chunks_to_delete):
-                if cx // 32 != region_x or cz // 32 != region_z:
-                    continue
+            for cx, cz in region_chunks:
                 local_x = cx % 32
                 local_z = cz % 32
                 slot = local_z * 32 + local_x
@@ -131,7 +143,7 @@ def _trim_pure_python(dimensions, layout, dims):
 
 def _trim_mcaselector(args, world_path, dims):
     """Delete chunks via MCA Selector for each dimension."""
-    from scripts.migrate_mca import build_delete_command, run_mcaselector
+    from migrate_mca import build_delete_command, run_mcaselector
 
     for dim in dims:
         delete_cmd = build_delete_command(
@@ -151,19 +163,19 @@ def run_pipeline(args) -> int:
         1 — safety abort (outputs still generated)
         2 — dependency / environment error
     """
-    from scripts.migrate_regions import analyze_dimension, count_chunks_in_directory
-    from scripts.migrate_remote import (
+    from migrate_regions import analyze_dimension, count_chunks_in_directory
+    from migrate_remote import (
         detect_local_layout,
         detect_remote_layout,
         download_world,
     )
-    from scripts.migrate_display import (
+    from migrate_display import (
         format_stats_table,
         format_safety_abort,
         format_report,
     )
-    from scripts.migrate_html import generate_html_file
-    from scripts.migrate_raw import generate_raw_file
+    from migrate_html import generate_html_file
+    from migrate_raw import generate_raw_file
 
     # ------------------------------------------------------------------
     # 1. Resolve world
@@ -215,7 +227,7 @@ def run_pipeline(args) -> int:
         else:
             # MCA Selector query mode
             import tempfile
-            from scripts.migrate_mca import (
+            from migrate_mca import (
                 build_select_command,
                 run_mcaselector,
                 count_selected_chunks,
@@ -225,16 +237,18 @@ def run_pipeline(args) -> int:
             with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
                 csv_path = Path(tmp.name)
 
-            select_cmd = build_select_command(
-                mcaselector_jar=Path(args.mcaselector),
-                world_dir=world_path,
-                dimension=dim,
-                query=args.query,
-                output_csv=csv_path,
-            )
-            run_mcaselector(select_cmd, f"Selecting {DIMENSION_LABELS[dim]}")
-            delete_count = count_selected_chunks(csv_path)
-            csv_path.unlink(missing_ok=True)
+            try:
+                select_cmd = build_select_command(
+                    mcaselector_jar=Path(args.mcaselector),
+                    world_dir=world_path,
+                    dimension=dim,
+                    query=args.query,
+                    output_csv=csv_path,
+                )
+                run_mcaselector(select_cmd, f"Selecting {DIMENSION_LABELS[dim]}")
+                delete_count = count_selected_chunks(csv_path)
+            finally:
+                csv_path.unlink(missing_ok=True)
 
             stats = {
                 "total": total,

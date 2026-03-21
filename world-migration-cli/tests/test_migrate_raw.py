@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from scripts.migrate_raw import generate_raw_file
+from migrate_raw import generate_raw_file
 
 
 def test_generate_raw_single_dimension(tmp_path):
@@ -55,7 +55,7 @@ def test_generate_raw_multi_dimension(tmp_path):
 
 def test_bit_encoding_exists_keep(tmp_path):
     """A kept chunk sets bit 7 (exists=1), bit 6 = 0, bits 0-5 = bucket."""
-    from scripts.migrate_nbt import inhabited_bucket
+    from migrate_nbt import inhabited_bucket
     dimensions = {
         "overworld": {
             "stats": {"total": 1, "delete": 0, "keep": 1},
