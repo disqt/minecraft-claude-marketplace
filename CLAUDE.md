@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A Claude Code **plugin marketplace** (`disqt/minecraft`) for Minecraft server and modpack management. Not a traditional codebase — contains no buildable source code. Everything here is skill definitions, agent prompts, and plugin metadata that Claude Code consumes directly.
+A Claude Code **plugin marketplace** (`disqt/minecraft`) for Minecraft server and modpack management. Contains skill definitions, agent prompts, plugin metadata, and the `world-migration-cli` Python tool.
 
 ## Repository Structure
 
