@@ -1,0 +1,9 @@
+{
+  "expectations": [
+    {"text": "Identifies the pregen thread is likely dead (silent death bug or stalled)", "passed": false, "evidence": "Guesses at thread starvation, memory pressure, chunk generation conflicts — never identifies the actual silent death bug or missing try-catch"},
+    {"text": "Explains that 'infinite' time remaining means momentary CPS is zero (division by zero)", "passed": true, "evidence": "'Infinite means recent throughput has dropped to zero or near-zero'"},
+    {"text": "Recommends stopping and restarting the pregen (dhs pregen stop then start)", "passed": true, "evidence": "Recommends 'dhs pregen stop' then 'dhs pregen start'"},
+    {"text": "Mentions that restarting skips already-generated LODs", "passed": true, "evidence": "'DHS pregen tracks its progress, so restarting will resume from approximately where it stopped'"},
+    {"text": "Suggests a diagnostic step (jstack for worker threads, or checking data.sqlite mtime)", "passed": false, "evidence": "Suggests checking CPU/memory/TPS but not jstack or data.sqlite mtime — generic server diagnostics, not DHS-specific"}
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "skill_name": "dhs-reference",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I set generate_new_chunks to true for DHS pregen. Does that mean pregen is permanently adding chunks to my world? My world is already 8GB and I don't want it to balloon. Should I set it to false instead?",
+      "expected_output": "Should explain that generate_new_chunks=true generates chunks for LOD building but discards them after (unloadChunk with save=false). World should NOT grow from pregen. Should mention the map key bug means only 1/16 chunks is explicitly discarded but the others should still be GC'd by Paper. Setting to false means pregen can only build LODs for already-explored areas.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "My DHS pregen has been running for 17 hours. dhs pregen status says 21% done at 5.35 CPS, time remaining infinite. But dhs status shows 0.00 CPS globally and there are 0 DH players online. Is it stuck? How do I fix it?",
+      "expected_output": "Should identify that the pregen thread is likely dead (silent death bug - no try-catch in PreGenerator.run()). Should explain that 'time remaining: infinite' means momentary CPS is 0 (division by zero). Should recommend checking for DHSupport-Worker threads via jstack, checking data.sqlite mtime, and restarting with dhs pregen stop then start (it skips existing LODs).",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I have 3 worlds on my Paper server: overworld (world_new), nether (world_new_nether), and a creative flatworld. What builder_type and config should I use for each in DHS?",
+      "expected_output": "Should recommend FastOverworldBuilder for overworld (solid ground assumption holds, faster), FullBuilder for nether (caves, no solid ground concept), and either FullBuilder or None for creative flat (flat world has simple terrain). Should mention relevant per-world config like sample_biomes_3d for nether, scan_to_sea_level for special terrain, and render_distance reduction for nether.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I want to understand DHS's threading. I have scheduler_threads set to 8 and full_data_request_concurrency_limit at 20. During pregen with no players online, how many LODs can actually be built in parallel? Is there a bottleneck?",
+      "expected_output": "Should explain that pregen itself occupies 1 worker thread, leaving 7 for builders. Despite concurrency limit of 20, only 7 LODs can build simultaneously. The other 13 queue in LinkedBlockingQueue. Should mention the single-threaded DB executor as another bottleneck (all SQLite writes serial). Should note allowCoreThreadTimeOut means idle threads die after 60s.",
+      "files": []
+    }
+  ]
+}

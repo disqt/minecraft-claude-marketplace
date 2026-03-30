@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "Explains that chunks are discarded after LOD building (unloadChunk with save=false)", "passed": false, "evidence": "Does NOT mention chunk discarding at all. Claims chunks 'are permanently saved to your world's region files just like any chunk a player walks through'"},
+    {"text": "Correctly states that world size should NOT grow from pregen", "passed": false, "evidence": "Incorrectly states 'your world will balloon significantly' and 'Each fully generated chunk consumes real disk space'"},
+    {"text": "Explains what generate_new_chunks=false means (only builds LODs from already-explored chunks)", "passed": true, "evidence": "Correctly explains false means 'only create LOD data for chunks that have already been generated'"},
+    {"text": "Does NOT incorrectly claim that generate_new_chunks=true permanently saves generated chunks", "passed": false, "evidence": "Explicitly claims 'These chunks are permanently saved to your world's region files' — this is wrong"}
+  ]
+}

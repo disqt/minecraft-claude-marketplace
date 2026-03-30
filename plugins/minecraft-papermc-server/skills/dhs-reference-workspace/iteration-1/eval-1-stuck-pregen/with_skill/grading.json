@@ -1,0 +1,9 @@
+{
+  "expectations": [
+    {"text": "Identifies the pregen thread is likely dead (silent death bug or stalled)", "passed": true, "evidence": "Directly identifies Bug #2 by name, explains the missing try-catch, CompletionException propagation, and thread death mechanism"},
+    {"text": "Explains that 'infinite' time remaining means momentary CPS is zero (division by zero)", "passed": true, "evidence": "'Time remaining: infinite means momentary CPS is actually 0 (division by zero)'"},
+    {"text": "Recommends stopping and restarting the pregen (dhs pregen stop then start)", "passed": true, "evidence": "Clear two-step instructions with commands"},
+    {"text": "Mentions that restarting skips already-generated LODs", "passed": true, "evidence": "'The pregen skips LODs that already exist in data.sqlite, so the 21% of LODs already generated will be skipped quickly'"},
+    {"text": "Suggests a diagnostic step (jstack for worker threads, or checking data.sqlite mtime)", "passed": true, "evidence": "Both methods described: 'jstack <server-pid> | grep DHSupport' and 'stat plugins/DHSupport/data.sqlite'"}
+  ]
+}

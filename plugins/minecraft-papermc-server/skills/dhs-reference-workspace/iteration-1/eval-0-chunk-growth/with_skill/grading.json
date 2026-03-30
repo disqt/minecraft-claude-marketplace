@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "Explains that chunks are discarded after LOD building (unloadChunk with save=false)", "passed": true, "evidence": "Explicitly states 'DHS calls world.unloadChunk(chunkX, chunkZ, false) -- the false parameter means do not save to disk'"},
+    {"text": "Correctly states that world size should NOT grow from pregen", "passed": true, "evidence": "Says 'by design it should not' and 'Your 8GB world should not balloon from pregen alone', with nuanced caveat about bug #1"},
+    {"text": "Explains what generate_new_chunks=false means (only builds LODs from already-explored chunks)", "passed": true, "evidence": "States 'DHS can only build LODs from chunks that already exist on disk' and 'pregen will produce gaps wherever chunks have never been generated'"},
+    {"text": "Does NOT incorrectly claim that generate_new_chunks=true permanently saves generated chunks", "passed": true, "evidence": "Correctly explains chunks are discarded. Notes bug #1 as a potential leak but frames it correctly as a bug, not intended behavior"}
+  ]
+}

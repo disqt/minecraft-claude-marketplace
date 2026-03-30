@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "Recommends FastOverworldBuilder for overworld", "passed": true, "evidence": "Explicitly recommends FastOverworldBuilder with config example and explanation of 2-3x speed advantage"},
+    {"text": "Recommends FullBuilder for nether", "passed": true, "evidence": "Recommends FullBuilder, explains 'no solid ground in the overworld sense'"},
+    {"text": "Mentions sample_biomes_3d for nether or render_distance reduction", "passed": true, "evidence": "Recommends 'sample_biomes_3d: true because the nether has vertical biome variation'"},
+    {"text": "Provides a reasonable recommendation for the creative flatworld", "passed": true, "evidence": "Recommends FullBuilder with reasoning that custom generation may violate FastOverworldBuilder assumptions, and performance difference is negligible on flat terrain"}
+  ]
+}

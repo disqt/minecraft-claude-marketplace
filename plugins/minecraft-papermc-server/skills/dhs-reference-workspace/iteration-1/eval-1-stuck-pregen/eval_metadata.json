@@ -1,0 +1,27 @@
+{
+  "eval_id": 1,
+  "eval_name": "stuck-pregen",
+  "prompt": "My DHS pregen has been running for 17 hours. dhs pregen status says 21% done at 5.35 CPS, time remaining infinite. But dhs status shows 0.00 CPS globally and there are 0 DH players online. Is it stuck? How do I fix it?",
+  "assertions": [
+    {
+      "text": "Identifies the pregen thread is likely dead (silent death bug or stalled)",
+      "type": "factual"
+    },
+    {
+      "text": "Explains that 'infinite' time remaining means momentary CPS is zero (division by zero)",
+      "type": "factual"
+    },
+    {
+      "text": "Recommends stopping and restarting the pregen (dhs pregen stop then start)",
+      "type": "actionable"
+    },
+    {
+      "text": "Mentions that restarting skips already-generated LODs",
+      "type": "factual"
+    },
+    {
+      "text": "Suggests a diagnostic step (jstack for worker threads, or checking data.sqlite mtime)",
+      "type": "actionable"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "Recommends FastOverworldBuilder for overworld", "passed": false, "evidence": "Recommends 'WorldGeneration' — a hallucinated builder type that doesn't exist in DHS. The actual builders are FullBuilder, FastOverworldBuilder, and None"},
+    {"text": "Recommends FullBuilder for nether", "passed": false, "evidence": "Recommends 'ExistingChunksOnly' — another hallucinated builder type. Never mentions FullBuilder"},
+    {"text": "Mentions sample_biomes_3d for nether or render_distance reduction", "passed": false, "evidence": "Never mentions sample_biomes_3d. Discusses nether ceiling visibility but with incorrect config names"},
+    {"text": "Provides a reasonable recommendation for the creative flatworld", "passed": false, "evidence": "Recommends 'ExistingChunksOnly' which doesn't exist. The reasoning is sound but the actual config value is wrong"}
+  ]
+}

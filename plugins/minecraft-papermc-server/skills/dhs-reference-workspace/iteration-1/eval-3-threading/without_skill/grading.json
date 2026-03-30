@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "Correctly identifies that pregen occupies 1 worker thread, leaving 7 for builders", "passed": false, "evidence": "Claims '8 workers that can process LOD tasks concurrently' — does not know pregen shares the pool, so misses the -1"},
+    {"text": "Explains that despite concurrency limit of 20, only 7 LODs can build in parallel", "passed": false, "evidence": "Says 'effective parallelism is likely capped at 8, not 20' — close but wrong number (should be 7) and frames it as speculation not fact"},
+    {"text": "Mentions the single-threaded DB executor as a bottleneck", "passed": false, "evidence": "Never mentions SQLite or database writer. Discusses disk I/O generically but not the single-threaded DB executor"},
+    {"text": "Mentions allowCoreThreadTimeOut or that idle threads die after 60s", "passed": false, "evidence": "Not mentioned at all. Explicitly states 'my knowledge of DHS internals is limited'"}
+  ]
+}

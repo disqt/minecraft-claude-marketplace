@@ -1,0 +1,23 @@
+{
+  "eval_id": 3,
+  "eval_name": "threading",
+  "prompt": "I want to understand DHS's threading. I have scheduler_threads set to 8 and full_data_request_concurrency_limit at 20. During pregen with no players online, how many LODs can actually be built in parallel? Is there a bottleneck?",
+  "assertions": [
+    {
+      "text": "Correctly identifies that pregen occupies 1 worker thread, leaving 7 for builders",
+      "type": "factual"
+    },
+    {
+      "text": "Explains that despite concurrency limit of 20, only 7 LODs can build in parallel",
+      "type": "factual"
+    },
+    {
+      "text": "Mentions the single-threaded DB executor as a bottleneck",
+      "type": "factual"
+    },
+    {
+      "text": "Mentions allowCoreThreadTimeOut or that idle threads die after 60s",
+      "type": "factual"
+    }
+  ]
+}

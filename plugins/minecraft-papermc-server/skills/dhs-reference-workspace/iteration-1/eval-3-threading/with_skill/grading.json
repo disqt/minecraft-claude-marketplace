@@ -1,0 +1,8 @@
+{
+  "expectations": [
+    {"text": "Correctly identifies that pregen occupies 1 worker thread, leaving 7 for builders", "passed": true, "evidence": "'PreGenerator.run() runs on this same pool via runOnSeparateThread. That consumes 1 of your 8 threads'"},
+    {"text": "Explains that despite concurrency limit of 20, only 7 LODs can build in parallel", "passed": true, "evidence": "'at most 7 of those 20 in-flight requests are actively building LODs. The other 13 sit in the pool's LinkedBlockingQueue'"},
+    {"text": "Mentions the single-threaded DB executor as a bottleneck", "passed": true, "evidence": "'All LOD saves go through AsyncLodRepository, which uses a single-threaded executor. Every completed LOD must serialize through this one-at-a-time database writer'"},
+    {"text": "Mentions allowCoreThreadTimeOut or that idle threads die after 60s", "passed": false, "evidence": "Does not mention allowCoreThreadTimeOut or the 60s idle timeout. Discusses thread pool exhaustion but not the timeout behavior"}
+  ]
+}

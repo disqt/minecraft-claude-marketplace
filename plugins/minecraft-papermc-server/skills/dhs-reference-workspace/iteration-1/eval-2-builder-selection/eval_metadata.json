@@ -1,0 +1,23 @@
+{
+  "eval_id": 2,
+  "eval_name": "builder-selection",
+  "prompt": "I have 3 worlds on my Paper server: overworld (world_new), nether (world_new_nether), and a creative flatworld. What builder_type and config should I use for each in DHS?",
+  "assertions": [
+    {
+      "text": "Recommends FastOverworldBuilder for overworld",
+      "type": "factual"
+    },
+    {
+      "text": "Recommends FullBuilder for nether",
+      "type": "factual"
+    },
+    {
+      "text": "Mentions sample_biomes_3d for nether or render_distance reduction",
+      "type": "factual"
+    },
+    {
+      "text": "Provides a reasonable recommendation for the creative flatworld (FullBuilder, FastOverworldBuilder, or None/disable)",
+      "type": "factual"
+    }
+  ]
+}

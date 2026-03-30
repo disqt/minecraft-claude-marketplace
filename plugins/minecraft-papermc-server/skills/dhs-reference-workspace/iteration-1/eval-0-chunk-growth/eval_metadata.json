@@ -1,0 +1,23 @@
+{
+  "eval_id": 0,
+  "eval_name": "chunk-growth",
+  "prompt": "I set generate_new_chunks to true for DHS pregen. Does that mean pregen is permanently adding chunks to my world? My world is already 8GB and I don't want it to balloon. Should I set it to false instead?",
+  "assertions": [
+    {
+      "text": "Explains that chunks are discarded after LOD building (unloadChunk with save=false)",
+      "type": "factual"
+    },
+    {
+      "text": "Correctly states that world size should NOT grow from pregen",
+      "type": "factual"
+    },
+    {
+      "text": "Explains what generate_new_chunks=false means (only builds LODs from already-explored chunks)",
+      "type": "factual"
+    },
+    {
+      "text": "Does NOT incorrectly claim that generate_new_chunks=true permanently saves generated chunks",
+      "type": "negative"
+    }
+  ]
+}

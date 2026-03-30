@@ -1,0 +1,101 @@
+{
+  "skill_name": "dhs-reference",
+  "iteration": 1,
+  "configurations": [
+    {
+      "name": "with_skill",
+      "label": "With DHS Reference Skill",
+      "evals": [
+        {
+          "eval_name": "chunk-growth",
+          "pass_rate": 1.0,
+          "passed": 4,
+          "total": 4,
+          "tokens": 24583,
+          "duration_seconds": 44.9
+        },
+        {
+          "eval_name": "stuck-pregen",
+          "pass_rate": 1.0,
+          "passed": 5,
+          "total": 5,
+          "tokens": 24810,
+          "duration_seconds": 58.1
+        },
+        {
+          "eval_name": "builder-selection",
+          "pass_rate": 1.0,
+          "passed": 4,
+          "total": 4,
+          "tokens": 24788,
+          "duration_seconds": 44.8
+        },
+        {
+          "eval_name": "threading",
+          "pass_rate": 0.75,
+          "passed": 3,
+          "total": 4,
+          "tokens": 25297,
+          "duration_seconds": 58.0
+        }
+      ],
+      "aggregate": {
+        "mean_pass_rate": 0.94,
+        "total_passed": 16,
+        "total_assertions": 17,
+        "mean_tokens": 24870,
+        "mean_duration_seconds": 51.5
+      }
+    },
+    {
+      "name": "without_skill",
+      "label": "Baseline (No Skill)",
+      "evals": [
+        {
+          "eval_name": "chunk-growth",
+          "pass_rate": 0.25,
+          "passed": 1,
+          "total": 4,
+          "tokens": 15400,
+          "duration_seconds": 33.4
+        },
+        {
+          "eval_name": "stuck-pregen",
+          "pass_rate": 0.6,
+          "passed": 3,
+          "total": 5,
+          "tokens": 15737,
+          "duration_seconds": 42.1
+        },
+        {
+          "eval_name": "builder-selection",
+          "pass_rate": 0.0,
+          "passed": 0,
+          "total": 4,
+          "tokens": 16069,
+          "duration_seconds": 48.5
+        },
+        {
+          "eval_name": "threading",
+          "pass_rate": 0.0,
+          "passed": 0,
+          "total": 4,
+          "tokens": 15579,
+          "duration_seconds": 40.5
+        }
+      ],
+      "aggregate": {
+        "mean_pass_rate": 0.24,
+        "total_passed": 4,
+        "total_assertions": 17,
+        "mean_tokens": 15696,
+        "mean_duration_seconds": 41.1
+      }
+    }
+  ],
+  "delta": {
+    "pass_rate_improvement": 0.70,
+    "token_overhead": 9174,
+    "duration_overhead_seconds": 10.4
+  }
+}
