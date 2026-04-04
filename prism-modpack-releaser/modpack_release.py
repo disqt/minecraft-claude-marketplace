@@ -300,22 +300,31 @@ def prune_old_versions(config: dict, keep: int):
             print(f"  Pruned {old_file}")
 
 
-def notify_discord(config: dict, version: str, changelog: list[str]):
+def notify_discord(config: dict, version: str, filename: str, size_str: str, changelog: list[str]):
     """Send a release notification to Discord via the bot's notify endpoint."""
     host = config["vps_host"]
     channel_id = config["discord_channel_id"]
     mc_version = config["mc_version"]
     role_id = config.get("discord_role_id", "")
+    download_url = config.get("download_url", "https://disqt.com/minecraft/modpack/latest.zip")
 
-    description = "\n".join(changelog) if changelog else "No changes listed."
-    description += "\n\n[disqt.com/minecraft](https://disqt.com/minecraft/)"
+    description = "\n".join(f"- {line}" for line in changelog) if changelog else "No changes listed."
+    description += f"\n\n**[Download ({size_str})]({download_url})**"
 
     payload = {
         "channel_id": channel_id,
         "embed": {
             "title": f"Modpack {mc_version} v{version}",
+            "url": "https://disqt.com/minecraft/",
             "description": description,
             "color": 0x2dd4bf,
+            "fields": [
+                {"name": "Version", "value": f"v{version}", "inline": True},
+                {"name": "Modloader", "value": config["modloader"], "inline": True},
+                {"name": "Size", "value": size_str, "inline": True},
+            ],
+            "footer": {"text": "disqt.com/minecraft"},
+            "timestamp": date.today().isoformat() + "T00:00:00.000Z",
         },
     }
 
@@ -394,7 +403,7 @@ def main():
 
         # Discord notification (next task)
         if not args.no_notify and config.get("discord_channel_id"):
-            notify_discord(config, version, changelog)
+            notify_discord(config, version, filename, size_str, changelog)
 
         print(f"Released {mc_version} v{version}")
 
