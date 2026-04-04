@@ -92,28 +92,41 @@ def test_get_player_position_not_found():
 # --- save_all ---
 
 def test_save_all_waits_for_confirmation():
-    """save_all sends 'save-all' via tmux and returns when log shows 'Saved the game'."""
-    log_line = "[12:00:01] [Server thread/INFO]: Saved the game"
+    """save_all sends marker + 'save-all', returns when log shows marker then 'Saved the game'."""
     sent = []
+
+    def fake_run(cmd):
+        return [
+            "[12:00:00] [Server thread/INFO]: [Server] SAVEALL_100",
+            "[12:00:01] [Server thread/INFO]: Saved the game",
+        ]
 
     with (
         patch("census_collect._send_tmux", side_effect=lambda cmd: sent.append(cmd)),
-        patch("census_collect._run_command", return_value=[log_line]),
+        patch("census_collect._run_command", side_effect=fake_run),
         patch("census_collect.time.sleep"),
-        patch("census_collect.time.time", side_effect=[0, 1]),
+        patch("census_collect.time.time", side_effect=[100, 100, 101]),
     ):
         save_all(timeout=30)
 
+    assert any("SAVEALL_100" in s for s in sent)
     assert "save-all" in sent
 
 
 def test_save_all_timeout():
-    """save_all raises TimeoutError if 'Saved the game' never appears."""
+    """save_all raises TimeoutError if 'Saved the game' never appears after marker."""
+    def fake_run(cmd):
+        # Marker present but no "Saved the game" after it
+        return [
+            "[12:00:00] [Server thread/INFO]: [Server] SAVEALL_200",
+            "[12:00:01] Some other line",
+        ]
+
     with (
         patch("census_collect._send_tmux"),
-        patch("census_collect._run_command", return_value=["[12:00:01] Some other line"]),
+        patch("census_collect._run_command", side_effect=fake_run),
         patch("census_collect.time.sleep"),
-        patch("census_collect.time.time", side_effect=[0, 31, 62]),
+        patch("census_collect.time.time", side_effect=[200, 200, 231]),
     ):
         with pytest.raises(TimeoutError):
             save_all(timeout=30)

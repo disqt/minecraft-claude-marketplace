@@ -2,7 +2,6 @@
 
 import os
 import re
-import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -138,14 +137,26 @@ def get_poi_files(region_coords, local_dir):
 
 
 def save_all(timeout=30):
-    """Send 'save-all' via tmux and wait for 'Saved the game' in the log."""
+    """Send 'save-all' via tmux and wait for 'Saved the game' in the log.
+
+    Uses a unique marker to avoid matching stale log lines from previous saves.
+    """
+    timestamp = int(time.time())
+    marker = f"SAVEALL_{timestamp}"
+    _send_tmux(f"say {marker}")
+    time.sleep(0.5)
     _send_tmux("save-all")
     start = time.time()
     while time.time() - start < timeout:
         time.sleep(2)
-        lines = _run_command(f"tail -n 20 {LOG_PATH}")
+        lines = _run_command(f"tail -n 50 {LOG_PATH}")
+        # Only look for "Saved the game" AFTER our marker
+        after_marker = False
         for line in lines:
-            if "Saved the game" in line:
+            if marker in line:
+                after_marker = True
+                continue
+            if after_marker and "Saved the game" in line:
                 return
     raise TimeoutError(f"save-all did not complete within {timeout}s")
 
