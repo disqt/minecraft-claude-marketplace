@@ -13,3 +13,6 @@ villager-census/census.db
 .project
 .classpath
 .settings/
+
+# Secrets
+prism-modpack-releaser/modpack-release.json
