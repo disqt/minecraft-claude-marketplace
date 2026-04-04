@@ -60,6 +60,32 @@ def _tail_log_after_command(command, wait_seconds=5, tail_lines=200):
 # High-level collection functions
 # ---------------------------------------------------------------------------
 
+def forceload_zones(zones):
+    """Send /forceload add for each zone's bounding box in chunk coordinates."""
+    from census_zones import zone_bounds
+
+    for zone in zones:
+        x_min, z_min, x_max, z_max = zone_bounds(zone)
+        cx_min, cz_min = x_min >> 4, z_min >> 4
+        cx_max, cz_max = x_max >> 4, z_max >> 4
+        _send_tmux(f"forceload add {cx_min} {cz_min} {cx_max} {cz_max}")
+        time.sleep(0.3)
+
+    time.sleep(2)  # wait for chunks to load
+
+
+def unforceload_zones(zones):
+    """Send /forceload remove for each zone's bounding box in chunk coordinates."""
+    from census_zones import zone_bounds
+
+    for zone in zones:
+        x_min, z_min, x_max, z_max = zone_bounds(zone)
+        cx_min, cz_min = x_min >> 4, z_min >> 4
+        cx_max, cz_max = x_max >> 4, z_max >> 4
+        _send_tmux(f"forceload remove {cx_min} {cz_min} {cx_max} {cz_max}")
+        time.sleep(0.3)
+
+
 def check_chunks_loaded(zones):
     """Probe which zones have loaded chunks using 'execute if loaded'.
 

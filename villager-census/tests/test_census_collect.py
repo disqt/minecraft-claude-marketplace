@@ -6,8 +6,10 @@ from unittest.mock import patch
 from census_collect import (
     check_chunks_loaded,
     check_players_online,
+    forceload_zones,
     get_player_position,
     parse_death_log,
+    unforceload_zones,
 )
 from census_zones import make_single_zone
 
@@ -135,6 +137,89 @@ def test_check_chunks_loaded_partial():
         loaded = check_chunks_loaded(zones)
 
     assert loaded == ["loaded-zone"]
+
+
+# --- forceload_zones / unforceload_zones ---
+
+def test_forceload_zones_sends_correct_commands():
+    """forceload_zones sends /forceload add with chunk coords for each zone."""
+    zones = [
+        {"name": "a", "type": "rect", "x_min": 3090, "z_min": -1040, "x_max": 3220, "z_max": -980},
+    ]
+    sent = []
+    with (
+        patch("census_collect._send_tmux", side_effect=lambda cmd: sent.append(cmd)),
+        patch("census_collect.time.sleep"),
+    ):
+        forceload_zones(zones)
+
+    # Block coords >> 4 = chunk coords
+    # 3090 >> 4 = 193, -1040 >> 4 = -65, 3220 >> 4 = 201, -980 >> 4 = -62 (arithmetic shift)
+    assert any("forceload add 193 -65 201 -62" in cmd for cmd in sent), f"Commands: {sent}"
+
+
+def test_forceload_zones_multiple_zones():
+    """forceload_zones sends one command per zone."""
+    zones = [
+        {"name": "a", "type": "rect", "x_min": 0, "z_min": 0, "x_max": 160, "z_max": 160},
+        {"name": "b", "type": "rect", "x_min": 320, "z_min": 320, "x_max": 480, "z_max": 480},
+    ]
+    sent = []
+    with (
+        patch("census_collect._send_tmux", side_effect=lambda cmd: sent.append(cmd)),
+        patch("census_collect.time.sleep"),
+    ):
+        forceload_zones(zones)
+
+    forceload_cmds = [c for c in sent if "forceload add" in c]
+    assert len(forceload_cmds) == 2
+
+
+def test_unforceload_zones_sends_remove():
+    """unforceload_zones sends /forceload remove for each zone."""
+    zones = [
+        {"name": "a", "type": "rect", "x_min": 3090, "z_min": -1040, "x_max": 3220, "z_max": -980},
+    ]
+    sent = []
+    with (
+        patch("census_collect._send_tmux", side_effect=lambda cmd: sent.append(cmd)),
+        patch("census_collect.time.sleep"),
+    ):
+        unforceload_zones(zones)
+
+    assert any("forceload remove 193 -65 201 -62" in cmd for cmd in sent), f"Commands: {sent}"
+
+
+def test_forceload_zones_circle():
+    """Circle zones use their bounding box for forceload."""
+    zones = [
+        {"name": "c", "type": "circle", "center_x": 160, "center_z": -160, "radius": 80},
+    ]
+    sent = []
+    with (
+        patch("census_collect._send_tmux", side_effect=lambda cmd: sent.append(cmd)),
+        patch("census_collect.time.sleep"),
+    ):
+        forceload_zones(zones)
+
+    # bounds: (80, -240, 240, -80) >> 4 = (5, -15, 15, -5)
+    assert any("forceload add 5 -15 15 -5" in cmd for cmd in sent), f"Commands: {sent}"
+
+
+def test_forceload_zones_sleeps_after():
+    """forceload_zones sleeps 2s after all commands for chunks to load."""
+    zones = [
+        {"name": "a", "type": "rect", "x_min": 0, "z_min": 0, "x_max": 16, "z_max": 16},
+    ]
+    sleep_calls = []
+    with (
+        patch("census_collect._send_tmux"),
+        patch("census_collect.time.sleep", side_effect=lambda s: sleep_calls.append(s)),
+    ):
+        forceload_zones(zones)
+
+    # Last sleep should be 2s (chunk load wait)
+    assert sleep_calls[-1] == 2
 
 
 def test_check_chunks_loaded_none():
