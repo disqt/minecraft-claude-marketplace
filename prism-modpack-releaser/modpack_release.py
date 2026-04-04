@@ -65,10 +65,9 @@ def zip_instance(instance_path: Path, output_path: Path, root_name: str) -> int:
     Returns the zip file size in bytes.
     """
     ignore_patterns = load_packignore(instance_path)
-    ignore_patterns.extend([
-        ".minecraft/logs",
-        ".minecraft/crash-reports",
-    ])
+    if not ignore_patterns:
+        print("  Warning: no .packignore found, zipping everything")
+
 
     print("Zipping instance...")
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
