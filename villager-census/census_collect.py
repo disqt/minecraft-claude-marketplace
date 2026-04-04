@@ -60,30 +60,27 @@ def _tail_log_after_command(command, wait_seconds=5, tail_lines=200):
 # High-level collection functions
 # ---------------------------------------------------------------------------
 
-def forceload_zones(zones):
-    """Send /forceload add for each zone's bounding box in chunk coordinates."""
+def _forceload_cmd(zones, action):
+    """Send /forceload add|remove for each zone's bounding box in chunk coordinates."""
     from census_zones import zone_bounds
 
     for zone in zones:
         x_min, z_min, x_max, z_max = zone_bounds(zone)
         cx_min, cz_min = x_min >> 4, z_min >> 4
         cx_max, cz_max = x_max >> 4, z_max >> 4
-        _send_tmux(f"forceload add {cx_min} {cz_min} {cx_max} {cz_max}")
+        _send_tmux(f"forceload {action} {cx_min} {cz_min} {cx_max} {cz_max}")
         time.sleep(0.3)
 
+
+def forceload_zones(zones):
+    """Forceload all zone chunks and wait for them to load."""
+    _forceload_cmd(zones, "add")
     time.sleep(2)  # wait for chunks to load
 
 
 def unforceload_zones(zones):
-    """Send /forceload remove for each zone's bounding box in chunk coordinates."""
-    from census_zones import zone_bounds
-
-    for zone in zones:
-        x_min, z_min, x_max, z_max = zone_bounds(zone)
-        cx_min, cz_min = x_min >> 4, z_min >> 4
-        cx_max, cz_max = x_max >> 4, z_max >> 4
-        _send_tmux(f"forceload remove {cx_min} {cz_min} {cx_max} {cz_max}")
-        time.sleep(0.3)
+    """Remove forceload marks from all zone chunks."""
+    _forceload_cmd(zones, "remove")
 
 
 def check_chunks_loaded(zones):

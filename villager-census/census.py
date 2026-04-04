@@ -56,7 +56,7 @@ DEFAULT_POI_REGIONS = [(5, -3), (5, -2), (6, -3), (6, -2)]
 def run_census(*, db_path, zones, poi_regions, notes=None, skipped_zones=None):
     """Run the full census pipeline and return a summary dict.
 
-    zones: list of zone dicts to scan (only loaded zones in --auto mode)
+    zones: list of zone dicts to scan (only loaded zones in --lazy mode)
     poi_regions: list of (rx, rz) tuples for bed data
     skipped_zones: list of zone names that were skipped (chunks not loaded)
 
