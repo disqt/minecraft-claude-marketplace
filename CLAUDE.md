@@ -12,10 +12,11 @@ redstone-viewer/                    # HTML viewers (disqt.com/minecraft/redstone
 modpack-version-checker/            # Modpack version checker (Paper plugin + Fabric mod)
 plugins/
   minecraft-prism-client/           # Client modpack management (v1.0.3) — skills: prism-audit, meta-refresh, version-refresh, compat-check, redstone
-  minecraft-papermc-server/         # Server plugin management (v1.0.3) — skills: papermc-audit, paper-check, meta-refresh, version-refresh, executor, compat-check
+  minecraft-papermc-server/         # Server plugin management (v1.0.4) — skills: papermc-audit, paper-check, meta-refresh, version-refresh, executor, compat-check, villager-census
   minecraft-spark-analyzer/         # Spark profiler analysis (v1.1.0) — skill: spark-analyze
 docs/superpowers/                   # Plans and specs
 world-migration-cli/                # Migration preview CLI (Python, see section below)
+villager-census/                    # Villager census CLI (Python, see section below)
 ```
 
 Each plugin has `skills/` (SKILL.md entry points), `agents/` (parallel agent definitions), and `.claude-plugin/plugin.json` (metadata). Explore subdirectories for full structure.
@@ -70,6 +71,7 @@ Four-phase pipeline with staging verification and live cutover:
 | `/meta-refresh` | Are these the right plugins? Gaps, replacements, wildcards |
 | `/version-refresh` | Are all plugins up to date? |
 | `/compat-check` | Internal sub-procedure (not user-invoked) |
+| `/villager-census` | Run a population census, store in SQLite, open playground viewer |
 
 ### Spark analyzer (minecraft-spark-analyzer)
 
@@ -92,6 +94,8 @@ Four-phase pipeline with staging verification and live cutover:
 | PaperMC server skill design | `docs/superpowers/specs/2026-03-12-papermc-server-plugin-skill-design.md` |
 | World migration trim tool plan | `docs/superpowers/plans/2026-03-20-world-migration-trim-tool.md` |
 | World migration trim tool design | `docs/superpowers/specs/2026-03-20-world-migration-trim-tool-design.md` |
+| Villager census design | `docs/superpowers/specs/2026-04-03-villager-census-design.md` |
+| Villager census plan | `docs/superpowers/plans/2026-04-03-villager-census.md` |
 
 ## Deploy
 

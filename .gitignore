@@ -6,6 +6,9 @@ minecraft-audits/
 __pycache__/
 .superpowers/
 
+# Census database
+villager-census/census.db
+
 # IDE
 .project
 .classpath
