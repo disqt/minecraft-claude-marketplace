@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import urllib.request
 import zipfile
 from datetime import date
 from pathlib import Path
@@ -323,6 +324,39 @@ def prune_old_versions(config: dict, keep: int):
         if old_file:
             ssh_cmd(host, f"rm -f '{vps_path}/{old_file}'")
             print(f"  Pruned {old_file}")
+
+
+def notify_discord(config: dict, version: str, changelog: list[str]):
+    """POST a release notification to Discord via webhook."""
+    webhook_url = config["discord_webhook"]
+    mc_version = config["mc_version"]
+
+    description = "\n".join(changelog) if changelog else "No changes listed."
+    payload = {
+        "embeds": [{
+            "title": f"Modpack {mc_version} v{version}",
+            "description": description,
+            "color": 0x2dd4bf,
+            "url": "https://disqt.com/minecraft/",
+            "footer": {"text": "disqt.com/minecraft"},
+        }]
+    }
+
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        webhook_url,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status in (200, 204):
+                print("  Discord notification sent.")
+            else:
+                print(f"  Discord notification failed: HTTP {resp.status}")
+    except Exception as e:
+        print(f"  Discord notification failed: {e}")
 
 
 def main():
