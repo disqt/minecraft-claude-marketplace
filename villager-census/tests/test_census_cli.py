@@ -69,6 +69,8 @@ def test_cli_config_first_place(toml_file, db_file, capsys):
     """--config without --place uses the first place in the file."""
     with (
         patch("sys.argv", ["census.py", "--config", toml_file, "--db", db_file]),
+        patch("census.forceload_zones"),
+        patch("census.unforceload_zones"),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -84,6 +86,8 @@ def test_cli_config_with_place(toml_file, db_file):
     """--config --place selects the named place."""
     with (
         patch("sys.argv", ["census.py", "--config", toml_file, "--place", "hamlet", "--db", db_file]),
+        patch("census.forceload_zones"),
+        patch("census.unforceload_zones"),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -100,6 +104,8 @@ def test_cli_center_with_radius(db_file):
     with (
         patch("sys.argv", ["census.py", "--center", "3150,-950", "--radius", "300",
                            "--name", "piwigord", "--db", db_file]),
+        patch("census.forceload_zones"),
+        patch("census.unforceload_zones"),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -117,6 +123,8 @@ def test_cli_center_default_name(db_file):
     """--center without --name generates a name from coordinates."""
     with (
         patch("sys.argv", ["census.py", "--center", "100,-200", "--radius", "50", "--db", db_file]),
+        patch("census.forceload_zones"),
+        patch("census.unforceload_zones"),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -148,6 +156,8 @@ def test_cli_rect(db_file):
     """--rect creates a rect zone."""
     with (
         patch("sys.argv", ["census.py", "--rect", "0,-100,200,0", "--name", "area", "--db", db_file]),
+        patch("census.forceload_zones"),
+        patch("census.unforceload_zones"),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -218,6 +228,8 @@ def test_cli_poi_regions_parsed(db_file):
     with (
         patch("sys.argv", ["census.py", "--center", "0,0", "--radius", "10",
                            "--poi-regions", "5,-3;6,-2", "--db", db_file]),
+        patch("census.forceload_zones"),
+        patch("census.unforceload_zones"),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -231,6 +243,8 @@ def test_cli_prints_zone_table(db_file, capsys):
     """CLI prints a zone breakdown table."""
     with (
         patch("sys.argv", ["census.py", "--center", "0,0", "--radius", "10", "--db", db_file]),
+        patch("census.forceload_zones"),
+        patch("census.unforceload_zones"),
         patch("census.run_census", return_value=MOCK_SUMMARY),
     ):
         census.main()
@@ -240,31 +254,12 @@ def test_cli_prints_zone_table(db_file, capsys):
     assert "Population" in output
 
 
-# --- --auto mode ---
+# --- --lazy mode ---
 
-def test_cli_auto_no_players_skips(toml_file, db_file, capsys):
-    """--auto with no players logs a skip and exits cleanly."""
+def test_cli_lazy_no_loaded_chunks_skips(toml_file, db_file, capsys):
+    """--lazy with no loaded chunks logs a skip and exits cleanly."""
     with (
-        patch("sys.argv", ["census.py", "--config", toml_file, "--auto", "--db", db_file]),
-        patch("census.check_players_online", return_value=[]),
-    ):
-        census.main()
-
-    output = capsys.readouterr().out
-    assert "Skipped: no players online" in output
-
-    conn = init_db(db_file)
-    cur = conn.execute("SELECT status, reason FROM census_runs")
-    row = cur.fetchone()
-    assert row["status"] == "skipped_no_players"
-    conn.close()
-
-
-def test_cli_auto_no_loaded_chunks_skips(toml_file, db_file, capsys):
-    """--auto with players but no loaded chunks logs a skip."""
-    with (
-        patch("sys.argv", ["census.py", "--config", toml_file, "--auto", "--db", db_file]),
-        patch("census.check_players_online", return_value=["Termiduck"]),
+        patch("sys.argv", ["census.py", "--config", toml_file, "--lazy", "--db", db_file]),
         patch("census.check_chunks_loaded", return_value=[]),
     ):
         census.main()
@@ -278,27 +273,22 @@ def test_cli_auto_no_loaded_chunks_skips(toml_file, db_file, capsys):
     conn.close()
 
 
-def test_cli_auto_partial_zones(toml_file, db_file, capsys):
-    """--auto with only some zones loaded runs a partial census."""
+def test_cli_lazy_partial_zones(toml_file, db_file, capsys):
+    """--lazy with only some zones loaded runs a partial census."""
     partial_summary = {**MOCK_SUMMARY, "zones": {"center": {"villagers": 5, "beds": 3, "bells": 0}}}
 
     with (
-        patch("sys.argv", ["census.py", "--config", toml_file, "--auto", "--db", db_file]),
-        patch("census.check_players_online", return_value=["Termiduck"]),
+        patch("sys.argv", ["census.py", "--config", toml_file, "--lazy", "--db", db_file]),
         patch("census.check_chunks_loaded", return_value=["center"]),
         patch("census.run_census", return_value=partial_summary) as mock_run,
     ):
         census.main()
 
-    # Only the loaded zone was passed to run_census
     zones = mock_run.call_args.kwargs["zones"]
     assert len(zones) == 1
     assert zones[0]["name"] == "center"
-
-    # Skipped zones passed through
     assert "outskirts" in mock_run.call_args.kwargs["skipped_zones"]
 
-    # Run logged as completed
     conn = init_db(db_file)
     cur = conn.execute("SELECT status, snapshot_id FROM census_runs")
     row = cur.fetchone()
@@ -307,11 +297,10 @@ def test_cli_auto_partial_zones(toml_file, db_file, capsys):
     conn.close()
 
 
-def test_cli_auto_prints_skipped_zones(toml_file, db_file, capsys):
-    """--auto prints which zones were skipped."""
+def test_cli_lazy_prints_skipped_zones(toml_file, db_file, capsys):
+    """--lazy prints which zones were skipped."""
     with (
-        patch("sys.argv", ["census.py", "--config", toml_file, "--auto", "--db", db_file]),
-        patch("census.check_players_online", return_value=["Termiduck"]),
+        patch("sys.argv", ["census.py", "--config", toml_file, "--lazy", "--db", db_file]),
         patch("census.check_chunks_loaded", return_value=["center"]),
         patch("census.run_census", return_value=MOCK_SUMMARY),
     ):
@@ -319,6 +308,40 @@ def test_cli_auto_prints_skipped_zones(toml_file, db_file, capsys):
 
     output = capsys.readouterr().out
     assert "Skipped (chunks not loaded): outskirts" in output
+
+
+# --- force mode (default) ---
+
+def test_cli_force_calls_forceload(toml_file, db_file, capsys):
+    """Default mode forceloads zones before census and unforceloads after."""
+    with (
+        patch("sys.argv", ["census.py", "--config", toml_file, "--db", db_file]),
+        patch("census.forceload_zones") as mock_fl,
+        patch("census.unforceload_zones") as mock_ufl,
+        patch("census.run_census", return_value=MOCK_SUMMARY),
+    ):
+        census.main()
+
+    mock_fl.assert_called_once()
+    mock_ufl.assert_called_once()
+    # Zones passed to forceload match the config
+    zones = mock_fl.call_args[0][0]
+    zone_names = {z["name"] for z in zones}
+    assert "center" in zone_names
+
+
+def test_cli_force_unforceloads_on_error(toml_file, db_file):
+    """Force mode unforceloads even if the census pipeline raises."""
+    with (
+        patch("sys.argv", ["census.py", "--config", toml_file, "--db", db_file]),
+        patch("census.forceload_zones"),
+        patch("census.unforceload_zones") as mock_ufl,
+        patch("census.run_census", side_effect=RuntimeError("boom")),
+        pytest.raises(RuntimeError, match="boom"),
+    ):
+        census.main()
+
+    mock_ufl.assert_called_once()
 
 
 # --- --install / --uninstall ---
@@ -347,7 +370,7 @@ def test_cli_install_cron(toml_file, db_file, capsys):
 
     crontab = installed_crontab[0]
     assert "*/15 * * * *" in crontab
-    assert "--auto" in crontab
+    assert "--lazy" in crontab
     assert "--config" in crontab
     assert "# villager-census" in crontab
     # Existing entries preserved
