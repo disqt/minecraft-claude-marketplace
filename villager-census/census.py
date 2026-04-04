@@ -342,8 +342,6 @@ def _build_cron_command(args):
     db = str(Path(args.db).resolve())
 
     parts = [python, script, "--db", db]
-    if args.lazy:
-        parts.append("--lazy")
     if args.config:
         parts += ["--config", str(Path(args.config).resolve())]
         if args.place:
@@ -424,8 +422,6 @@ def main():
     parser.add_argument("--db", default="census.db", help="SQLite database path")
     parser.add_argument("--notes", default=None, help="Snapshot annotation")
     parser.add_argument("--export-json", action="store_true", help="Export DB as JSON and exit")
-    parser.add_argument("--lazy", action="store_true",
-                        help="Skip zones with unloaded chunks instead of forceloading")
     parser.add_argument("--ssh", default=None, metavar="HOST",
                         help="Run via SSH to HOST (default: local execution)")
     parser.add_argument("--install", nargs="?", const="30", metavar="MINUTES",
@@ -500,43 +496,41 @@ def main():
         parser.error("one of --config, --center, or --rect is required")
 
     timestamp = datetime.now(timezone.utc).isoformat()
-    skipped_zones = []
 
-    if args.lazy:
-        # Lazy mode: probe chunks, skip unloaded zones
-        loaded_names = check_chunks_loaded(zones)
-        if not loaded_names:
-            conn = init_db(args.db)
-            insert_census_run(conn, timestamp=timestamp,
-                              status="skipped_no_chunks",
-                              reason="No zones have loaded chunks")
-            conn.close()
-            print(f"[{timestamp}] Skipped: no zones have loaded chunks")
-            return
+    # Mtime noop gate: save-all, then check entity file mtimes
+    entity_regions = entity_region_coords(zones)
+    save_all()
+    current_mtimes = get_entity_mtimes(entity_regions)
 
-        all_zone_names = {z["name"] for z in zones}
-        skipped_zones = sorted(all_zone_names - set(loaded_names))
-        zones = [z for z in zones if z["name"] in loaded_names]
+    # Load previous mtimes from last successful census run
+    conn = init_db(args.db)
+    cur = conn.execute(
+        "SELECT entity_mtimes FROM census_runs WHERE status='completed' ORDER BY id DESC LIMIT 1"
+    )
+    row = cur.fetchone()
+    prev_mtimes = json.loads(row["entity_mtimes"]) if row and row["entity_mtimes"] else None
+    conn.close()
 
-        summary = run_census(
-            db_path=args.db, zones=zones, poi_regions=poi_regions,
-            notes=args.notes, skipped_zones=skipped_zones,
-        )
-
+    if prev_mtimes is not None and current_mtimes == prev_mtimes:
         conn = init_db(args.db)
-        insert_census_run(conn, timestamp=timestamp, status="completed",
-                          snapshot_id=summary["snapshot_id"])
+        insert_census_run(conn, timestamp=timestamp, status="skipped_no_changes",
+                          reason="Entity file mtimes unchanged",
+                          entity_mtimes=json.dumps(current_mtimes))
         conn.close()
-    else:
-        # Force mode (default): forceload chunks, run census, unforceload
-        forceload_zones(zones)
-        try:
-            summary = run_census(
-                db_path=args.db, zones=zones, poi_regions=poi_regions,
-                notes=args.notes, skipped_zones=skipped_zones,
-            )
-        finally:
-            unforceload_zones(zones)
+        print(f"[{timestamp}] Skipped: no changes to entity files since last census")
+        return
+
+    # Full census run
+    summary = run_census(
+        db_path=args.db, zones=zones, poi_regions=poi_regions,
+        notes=args.notes,
+    )
+
+    conn = init_db(args.db)
+    insert_census_run(conn, timestamp=timestamp, status="completed",
+                      snapshot_id=summary["snapshot_id"],
+                      entity_mtimes=json.dumps(current_mtimes))
+    conn.close()
 
     # Print summary
     print(f"\n## Census — {summary['timestamp']}")
@@ -551,8 +545,6 @@ def main():
         print("|------|-----------|------|-------|")
         for name, data in summary["zones"].items():
             print(f"| {name} | {data['villagers']} | {data['beds']} | {data['bells']} |")
-    if skipped_zones:
-        print(f"\nSkipped (chunks not loaded): {', '.join(skipped_zones)}")
     print()
 
 
