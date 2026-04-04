@@ -41,11 +41,12 @@ MOCK_SUMMARY = {
     "timestamp": "2026-04-04T12:00:00+00:00",
     "villager_count": 10,
     "bed_count": 8,
+    "bell_count": 1,
     "births": 2,
     "deaths": 1,
     "homeless": 3,
     "players_online": ["Termiduck"],
-    "zones": {"center": {"villagers": 10, "beds": 8}},
+    "zones": {"center": {"villagers": 10, "beds": 8, "bells": 1}},
 }
 
 
@@ -279,7 +280,7 @@ def test_cli_auto_no_loaded_chunks_skips(toml_file, db_file, capsys):
 
 def test_cli_auto_partial_zones(toml_file, db_file, capsys):
     """--auto with only some zones loaded runs a partial census."""
-    partial_summary = {**MOCK_SUMMARY, "zones": {"center": {"villagers": 5, "beds": 3}}}
+    partial_summary = {**MOCK_SUMMARY, "zones": {"center": {"villagers": 5, "beds": 3, "bells": 0}}}
 
     with (
         patch("sys.argv", ["census.py", "--config", toml_file, "--auto", "--db", db_file]),

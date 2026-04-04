@@ -18,8 +18,8 @@ from census_zones import make_single_zone
 SAMPLE_ENTITY_LINE = """[19:44:53] [Server thread/INFO]: Fisherman has the following entity data: {Paper.SpawnReason: "BREEDING", DeathTime: 0s, Bukkit.updateLevel: 2, RestocksToday: 0, Xp: 0, OnGround: 1b, LeftHanded: 0b, AbsorptionAmount: 0.0f, FoodLevel: 0b, LastRestock: 1001127489L, AgeLocked: 0b, Invulnerable: 0b, Brain: {memories: {"minecraft:last_woken": {value: 1018112423L}, "minecraft:job_site": {value: {pos: [I; 3172, 70, -754], dimension: "minecraft:overworld"}}, "minecraft:last_slept": {value: 1018111156L}, "minecraft:last_worked_at_poi": {value: 1001132966L}, "minecraft:meeting_point": {value: {pos: [I; 3170, 66, -883], dimension: "minecraft:overworld"}}}}, Paper.Origin: [3145.9453962812213d, 63.9375d, -1006.4578843209587d], Age: 0, Rotation: [44.46672f, 0.0f], HurtByTimestamp: 0, Bukkit.Aware: 1b, ForcedAge: 0, attributes: [{base: 0.5d, id: "minecraft:movement_speed"}], WorldUUIDMost: -8821679170295479734L, fall_distance: 0.0d, Air: 300s, Offers: {Recipes: [{buy: {id: "minecraft:emerald", count: 1}, sell: {id: "minecraft:cooked_cod", count: 6}, priceMultiplier: 0.05f, buyB: {id: "minecraft:cod", count: 6}, maxUses: 16}]}, UUID: [I; 346464738, -1288157012, -1558611273, 949520682], Inventory: [{id: "minecraft:beetroot", count: 2}], Spigot.ticksLived: 821095, Paper.OriginWorld: [I; -2053957240, -1408023990, -1113309832, -1718626039], Gossips: [], VillagerData: {type: "minecraft:taiga", profession: "minecraft:fisherman", level: 1}, WorldUUIDLeast: -4781629316178913015L, Motion: [0.0d, -0.0784000015258789d, 0.0d], Pos: [3173.038130397757d, 70.0d, -755.0478646574805d], Fire: 0s, CanPickUpLoot: 1b, Health: 16.0f, HurtTime: 0s, FallFlying: 0b, PersistenceRequired: 0b, LastGossipDecay: 1024984001L, PortalCooldown: 0}"""
 
 SAMPLE_BEDS = [
-    {"pos": [3172, 69, -923], "free_tickets": 0},
-    {"pos": [3140, 67, -1042], "free_tickets": 1},
+    {"type": "minecraft:home", "pos": [3172, 69, -923], "free_tickets": 0},
+    {"type": "minecraft:home", "pos": [3140, 67, -1042], "free_tickets": 1},
 ]
 
 # Default test zone: single circle covering the sample data
@@ -116,7 +116,7 @@ def test_run_census_bed_claimed_by():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
 
-    beds = [{"pos": [3000, 64, -900], "free_tickets": 0}]
+    beds = [{"type": "minecraft:home", "pos": [3000, 64, -900], "free_tickets": 0}]
     _run_with_mocks(db_path, beds=beds)
 
     conn = init_db(db_path)
@@ -160,8 +160,8 @@ def test_run_census_zone_classification():
         make_single_zone(center_x=0, center_z=0, radius=10, name="zone-b"),
     ]
     beds = [
-        {"pos": [3173, 69, -755], "free_tickets": 0},  # inside zone-a
-        {"pos": [5, 64, 5], "free_tickets": 1},         # inside zone-b
+        {"type": "minecraft:home", "pos": [3173, 69, -755], "free_tickets": 0},  # inside zone-a
+        {"type": "minecraft:home", "pos": [5, 64, 5], "free_tickets": 1},         # inside zone-b
     ]
 
     summary = _run_with_mocks(db_path, beds=beds, zones=zones)

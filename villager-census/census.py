@@ -22,6 +22,7 @@ from census_db import (
     get_snapshot_villager_uuids,
     init_db,
     insert_bed,
+    insert_bell,
     insert_census_run,
     insert_gossip,
     insert_inventory_item,
@@ -99,15 +100,16 @@ def run_census(*, db_path, zones, poi_regions, notes=None, skipped_zones=None):
     # Step 5: download and parse POI files
     poi_local_dir = Path("/tmp/census_poi")
     poi_paths = get_poi_files(poi_regions, poi_local_dir)
-    all_beds = parse_poi_regions(poi_paths)
+    all_pois = parse_poi_regions(poi_paths)
 
-    # Step 6: filter beds to bounding box (with margin)
+    # Step 6: filter POIs to bounding box (with margin) and split by type
     margin = 50
-    beds = [
-        b for b in all_beds
-        if (x_min - margin) <= b["pos"][0] <= (x_max + margin)
-        and (z_min - margin) <= b["pos"][2] <= (z_max + margin)
-    ]
+    def in_bounds(poi):
+        return ((x_min - margin) <= poi["pos"][0] <= (x_max + margin)
+                and (z_min - margin) <= poi["pos"][2] <= (z_max + margin))
+
+    beds = [p for p in all_pois if p["type"] == "minecraft:home" and in_bounds(p)]
+    bells = [p for p in all_pois if p["type"] == "minecraft:meeting" and in_bounds(p)]
 
     # Step 7: insert snapshot — store bounding box center as area_center
     cx = (x_min + x_max) / 2
@@ -124,6 +126,7 @@ def run_census(*, db_path, zones, poi_regions, notes=None, skipped_zones=None):
         scan_radius=scan_radius,
         villager_count=len(villagers),
         bed_count=len(beds),
+        bell_count=len(bells),
         notes=notes,
         zones_scanned=json.dumps(zone_names_scanned),
         zones_skipped=json.dumps(skipped_zones),
@@ -250,6 +253,32 @@ def run_census(*, db_path, zones, poi_regions, notes=None, skipped_zones=None):
             zone=bed_zone,
         )
 
+    # Step 9b: classify and insert bells
+    meeting_point_counts = Counter()
+    for v in villagers:
+        mx = v.get("meeting_point_x")
+        my = v.get("meeting_point_y")
+        mz = v.get("meeting_point_z")
+        if mx is not None and my is not None and mz is not None:
+            meeting_point_counts[(int(mx), int(my), int(mz))] += 1
+
+    bell_zone_counts = Counter()
+    for bell in bells:
+        bx, by, bz = bell["pos"][0], bell["pos"][1], bell["pos"][2]
+        vcount = meeting_point_counts.get((int(bx), int(by), int(bz)), 0)
+        bell_zone = classify_bed(zones, x=bx, z=bz)
+        bell_zone_counts[bell_zone or "unclassified"] += 1
+        insert_bell(
+            conn,
+            snapshot_id=snapshot_id,
+            pos_x=bx,
+            pos_y=by,
+            pos_z=bz,
+            free_tickets=bell.get("free_tickets", 0),
+            villager_count=vcount,
+            zone=bell_zone,
+        )
+
     # Step 10: deaths and births
     deaths_uuids = prev_uuids - current_uuids
     births_uuids = current_uuids - prev_uuids
@@ -272,13 +301,16 @@ def run_census(*, db_path, zones, poi_regions, notes=None, skipped_zones=None):
         zone_summary[name] = {
             "villagers": zone_counts.get(name, 0),
             "beds": bed_zone_counts.get(name, 0),
+            "bells": bell_zone_counts.get(name, 0),
         }
     unclassified_v = zone_counts.get("unclassified", 0)
     unclassified_b = bed_zone_counts.get("unclassified", 0)
-    if unclassified_v or unclassified_b:
+    unclassified_bell = bell_zone_counts.get("unclassified", 0)
+    if unclassified_v or unclassified_b or unclassified_bell:
         zone_summary["unclassified"] = {
             "villagers": unclassified_v,
             "beds": unclassified_b,
+            "bells": unclassified_bell,
         }
 
     return {
@@ -286,6 +318,7 @@ def run_census(*, db_path, zones, poi_regions, notes=None, skipped_zones=None):
         "timestamp": timestamp,
         "villager_count": len(villagers),
         "bed_count": len(beds),
+        "bell_count": len(bells),
         "births": len(births_uuids),
         "deaths": len(deaths_uuids),
         "homeless": homeless,
@@ -514,14 +547,15 @@ def main():
     print(f"\n## Census — {summary['timestamp']}")
     print(f"**Population:** {summary['villager_count']}  |  "
           f"**Beds:** {summary['bed_count']}  |  "
+          f"**Bells:** {summary['bell_count']}  |  "
           f"**Births:** {summary['births']}  |  "
           f"**Deaths:** {summary['deaths']}  |  "
           f"**Homeless:** {summary['homeless']}")
     if summary.get("zones"):
-        print("\n| Zone | Villagers | Beds |")
-        print("|------|-----------|------|")
+        print("\n| Zone | Villagers | Beds | Bells |")
+        print("|------|-----------|------|-------|")
         for name, data in summary["zones"].items():
-            print(f"| {name} | {data['villagers']} | {data['beds']} |")
+            print(f"| {name} | {data['villagers']} | {data['beds']} | {data['bells']} |")
     if skipped_zones:
         print(f"\nSkipped (chunks not loaded): {', '.join(skipped_zones)}")
     print()
