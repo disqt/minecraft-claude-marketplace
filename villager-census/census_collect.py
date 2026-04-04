@@ -61,75 +61,6 @@ def _tail_log_after_command(command, wait_seconds=5, tail_lines=200):
 # High-level collection functions
 # ---------------------------------------------------------------------------
 
-def _forceload_cmd(zones, action):
-    """Send /forceload add|remove for each zone's bounding box in chunk coordinates."""
-    from census_zones import zone_bounds
-
-    for zone in zones:
-        x_min, z_min, x_max, z_max = zone_bounds(zone)
-        cx_min, cz_min = x_min >> 4, z_min >> 4
-        cx_max, cz_max = x_max >> 4, z_max >> 4
-        _send_tmux(f"forceload {action} {cx_min} {cz_min} {cx_max} {cz_max}")
-        time.sleep(0.3)
-
-
-def forceload_zones(zones):
-    """Forceload all zone chunks and wait for them to load."""
-    _forceload_cmd(zones, "add")
-    time.sleep(2)  # wait for chunks to load
-
-
-def unforceload_zones(zones):
-    """Remove forceload marks from all zone chunks."""
-    _forceload_cmd(zones, "remove")
-
-
-def check_chunks_loaded(zones):
-    """Probe which zones have loaded chunks using 'execute if loaded'.
-
-    Sends one probe per zone via tmux, then reads the log for markers.
-    Returns a list of zone names whose chunks are loaded.
-    """
-    from census_zones import zone_center
-
-    timestamp = int(time.time())
-    start_marker = f"CHUNKPROBE_{timestamp}_START"
-    end_marker = f"CHUNKPROBE_{timestamp}_END"
-
-    _send_tmux(f"say {start_marker}")
-    time.sleep(0.5)
-
-    for zone in zones:
-        cx, cz = zone_center(zone)
-        marker = f"CHUNKPROBE_{timestamp}_{zone['name']}"
-        _send_tmux(f"execute if loaded {cx} 64 {cz} run say {marker}")
-        time.sleep(0.3)
-
-    time.sleep(1)
-    _send_tmux(f"say {end_marker}")
-    time.sleep(1)
-
-    all_lines = _run_command(f"tail -n 500 {LOG_PATH}")
-
-    collecting = False
-    loaded = []
-    zone_markers = {
-        f"CHUNKPROBE_{timestamp}_{z['name']}": z["name"] for z in zones
-    }
-    for line in all_lines:
-        if start_marker in line:
-            collecting = True
-            continue
-        if end_marker in line:
-            break
-        if collecting:
-            for marker, name in zone_markers.items():
-                if marker in line and name not in loaded:
-                    loaded.append(name)
-
-    return loaded
-
-
 def check_players_online():
     """Send 'list' command and return a list of online player names.
 
@@ -168,57 +99,6 @@ def get_player_position(player_name):
             x, y, z = float(m.group(1)), float(m.group(2)), float(m.group(3))
             return (x, y, z)
     return None
-
-
-def collect_villager_dumps(center_x, center_z, radius):
-    """Collect raw entity-data lines for all villagers within radius of (cx, cz)."""
-    selector = (
-        f"@e[type=minecraft:villager,"
-        f"x={center_x},y=70,z={center_z},distance=..{radius}]"
-    )
-    return _collect_with_selector(selector)
-
-
-def collect_villager_dumps_box(x_min, z_min, x_max, z_max):
-    """Collect raw entity-data lines for all villagers within a bounding box."""
-    dx = x_max - x_min
-    dz = z_max - z_min
-    selector = (
-        f"@e[type=minecraft:villager,"
-        f"x={x_min},y=-64,z={z_min},dx={dx},dy=384,dz={dz}]"
-    )
-    return _collect_with_selector(selector)
-
-
-def _collect_with_selector(selector):
-    """Send an execute/data-get command with START/END markers, return entity lines."""
-    timestamp = int(time.time())
-    start_marker = f"CENSUS_{timestamp}_START"
-    end_marker = f"CENSUS_{timestamp}_END"
-
-    _send_tmux(f"say {start_marker}")
-    time.sleep(0.5)
-
-    _send_tmux(f"execute as {selector} run data get entity @s")
-    time.sleep(5)
-
-    _send_tmux(f"say {end_marker}")
-    time.sleep(1)
-
-    all_lines = _run_command(f"tail -n 2000 {LOG_PATH}")
-
-    collecting = False
-    results = []
-    for line in all_lines:
-        if start_marker in line:
-            collecting = True
-            continue
-        if end_marker in line:
-            break
-        if collecting and "has the following entity data: {" in line:
-            results.append(line)
-
-    return results
 
 
 def get_poi_files(region_coords, local_dir):
