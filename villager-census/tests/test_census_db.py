@@ -9,6 +9,7 @@ from census_db import (
     insert_inventory_item,
     insert_gossip,
     insert_bed,
+    insert_bell,
     get_villager,
     get_latest_snapshot,
     mark_dead,
@@ -322,6 +323,34 @@ def test_export_snapshot_json(tmp_path):
     assert len(result["villagers"]) == 1
     assert len(result["villagers"][0]["trades"]) == 1
     assert len(result["beds"]) == 1
+
+
+def test_insert_bell(tmp_path):
+    conn = init_db(tmp_path / "test.db")
+    snap_id = make_snapshot(conn, bell_count=2)
+    bell_id = insert_bell(
+        conn, snapshot_id=snap_id,
+        pos_x=110, pos_y=65, pos_z=210,
+        free_tickets=30, villager_count=3, zone="north-village",
+    )
+    assert bell_id is not None
+
+    row = conn.execute("SELECT * FROM bells WHERE id = ?", (bell_id,)).fetchone()
+    assert row["pos_x"] == 110
+    assert row["free_tickets"] == 30
+    assert row["villager_count"] == 3
+    assert row["zone"] == "north-village"
+
+    snap = conn.execute("SELECT bell_count FROM snapshots WHERE id = ?", (snap_id,)).fetchone()
+    assert snap["bell_count"] == 2
+
+
+def test_insert_bell_unique_constraint(tmp_path):
+    conn = init_db(tmp_path / "test.db")
+    snap_id = make_snapshot(conn)
+    insert_bell(conn, snapshot_id=snap_id, pos_x=5, pos_y=64, pos_z=10, free_tickets=3)
+    with pytest.raises(sqlite3.IntegrityError):
+        insert_bell(conn, snapshot_id=snap_id, pos_x=5, pos_y=64, pos_z=10, free_tickets=3)
 
 
 def test_export_all_json(tmp_path):

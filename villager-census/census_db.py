@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS snapshots (
     scan_radius      INTEGER NOT NULL DEFAULT 64,
     villager_count   INTEGER NOT NULL DEFAULT 0,
     bed_count        INTEGER NOT NULL DEFAULT 0,
+    bell_count       INTEGER NOT NULL DEFAULT 0,
     notes            TEXT,
     zones_scanned    TEXT,
     zones_skipped    TEXT
@@ -128,6 +129,18 @@ CREATE TABLE IF NOT EXISTS beds (
     zone          TEXT,
     UNIQUE(snapshot_id, pos_x, pos_y, pos_z)
 );
+
+CREATE TABLE IF NOT EXISTS bells (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_id     INTEGER NOT NULL REFERENCES snapshots(id),
+    pos_x           INTEGER NOT NULL,
+    pos_y           INTEGER NOT NULL,
+    pos_z           INTEGER NOT NULL,
+    free_tickets    INTEGER NOT NULL DEFAULT 0,
+    villager_count  INTEGER NOT NULL DEFAULT 0,
+    zone            TEXT,
+    UNIQUE(snapshot_id, pos_x, pos_y, pos_z)
+);
 """
 
 
@@ -162,6 +175,23 @@ def _migrate(conn):
     if "zones_scanned" not in cols:
         conn.execute("ALTER TABLE snapshots ADD COLUMN zones_scanned TEXT")
         conn.execute("ALTER TABLE snapshots ADD COLUMN zones_skipped TEXT")
+    if "bell_count" not in cols:
+        conn.execute("ALTER TABLE snapshots ADD COLUMN bell_count INTEGER NOT NULL DEFAULT 0")
+
+    # Create bells table if missing (old DBs)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS bells (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_id     INTEGER NOT NULL REFERENCES snapshots(id),
+            pos_x           INTEGER NOT NULL,
+            pos_y           INTEGER NOT NULL,
+            pos_z           INTEGER NOT NULL,
+            free_tickets    INTEGER NOT NULL DEFAULT 0,
+            villager_count  INTEGER NOT NULL DEFAULT 0,
+            zone            TEXT,
+            UNIQUE(snapshot_id, pos_x, pos_y, pos_z)
+        );
+    """)
 
 
 # ---------------------------------------------------------------------------
@@ -176,18 +206,18 @@ def _row_to_dict(row):
 
 def insert_snapshot(conn, *, timestamp, players_online, area_center_x,
                     area_center_z, scan_radius, villager_count, bed_count,
-                    notes, zones_scanned=None, zones_skipped=None):
+                    bell_count=0, notes, zones_scanned=None, zones_skipped=None):
     """Insert a snapshot row and return its lastrowid."""
     cur = conn.execute(
         """
         INSERT INTO snapshots
             (timestamp, players_online, area_center_x, area_center_z,
-             scan_radius, villager_count, bed_count, notes,
+             scan_radius, villager_count, bed_count, bell_count, notes,
              zones_scanned, zones_skipped)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (timestamp, players_online, area_center_x, area_center_z,
-         scan_radius, villager_count, bed_count, notes,
+         scan_radius, villager_count, bed_count, bell_count, notes,
          zones_scanned, zones_skipped),
     )
     conn.commit()
@@ -317,6 +347,20 @@ def insert_bed(conn, *, snapshot_id, pos_x, pos_y, pos_z, free_tickets,
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (snapshot_id, pos_x, pos_y, pos_z, free_tickets, claimed_by, zone),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def insert_bell(conn, *, snapshot_id, pos_x, pos_y, pos_z, free_tickets,
+                villager_count=0, zone=None):
+    """Insert a bell row. UNIQUE(snapshot_id, pos_x, pos_y, pos_z)."""
+    cur = conn.execute(
+        """
+        INSERT INTO bells (snapshot_id, pos_x, pos_y, pos_z, free_tickets, villager_count, zone)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (snapshot_id, pos_x, pos_y, pos_z, free_tickets, villager_count, zone),
     )
     conn.commit()
     return cur.lastrowid
