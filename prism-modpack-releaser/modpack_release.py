@@ -251,6 +251,80 @@ def generate_changelog(instance_path: Path, config: dict) -> list[str]:
     return changelog
 
 
+def upload_zip(zip_path: Path, config: dict):
+    """SCP the zip to VPS."""
+    host = config["vps_host"]
+    vps_path = config["vps_path"]
+    dest = f"{host}:{vps_path}/{zip_path.name}"
+    print(f"Uploading {zip_path.name}...")
+    subprocess.run(["scp", str(zip_path), dest], check=True)
+    print("  Upload complete.")
+
+
+def update_manifest(config: dict, version: str, filename: str, size_str: str, changelog: list[str]):
+    """Read manifest from VPS, prepend new version, write back."""
+    host = config["vps_host"]
+    vps_path = config["vps_path"]
+    mc_version = config["mc_version"]
+    modloader = config["modloader"]
+
+    try:
+        raw = ssh_cmd(host, f"cat {vps_path}/manifest.json")
+        manifest = json.loads(raw)
+    except Exception:
+        manifest = {"latest": None, "versions": []}
+
+    new_entry = {
+        "version": f"{mc_version} v{version}",
+        "file": filename,
+        "date": date.today().isoformat(),
+        "mc": mc_version,
+        "modloader": modloader,
+        "size": size_str,
+        "changelog": changelog,
+    }
+
+    manifest["latest"] = new_entry
+    manifest["versions"].insert(0, new_entry)
+
+    manifest_json = json.dumps(manifest, indent=2, ensure_ascii=False)
+    ssh_cmd(host, f"cat > {vps_path}/manifest.json <<'MANIFEST_EOF'\n{manifest_json}\nMANIFEST_EOF")
+    print("  Manifest updated.")
+
+
+def update_symlink(config: dict, filename: str):
+    """Update the latest.zip symlink on VPS."""
+    host = config["vps_host"]
+    vps_path = config["vps_path"]
+    ssh_cmd(host, f"cd {vps_path} && ln -sf '{filename}' latest.zip")
+    print("  Symlink updated.")
+
+
+def prune_old_versions(config: dict, keep: int):
+    """Remove old zip files beyond the keep count, and trim manifest versions array."""
+    host = config["vps_host"]
+    vps_path = config["vps_path"]
+
+    raw = ssh_cmd(host, f"cat {vps_path}/manifest.json")
+    manifest = json.loads(raw)
+    versions = manifest.get("versions", [])
+
+    if len(versions) <= keep:
+        return
+
+    to_remove = versions[keep:]
+    manifest["versions"] = versions[:keep]
+
+    manifest_json = json.dumps(manifest, indent=2, ensure_ascii=False)
+    ssh_cmd(host, f"cat > {vps_path}/manifest.json <<'MANIFEST_EOF'\n{manifest_json}\nMANIFEST_EOF")
+
+    for entry in to_remove:
+        old_file = entry.get("file", "")
+        if old_file:
+            ssh_cmd(host, f"rm -f '{vps_path}/{old_file}'")
+            print(f"  Pruned {old_file}")
+
+
 def main():
     args = parse_args()
     config = load_config(args.config)
@@ -290,7 +364,28 @@ def main():
             print("Aborted.")
             return
 
-        # Upload and publish steps follow...
+        # Upload
+        upload_zip(zip_path, config)
+        print()
+
+        # Update manifest
+        print("Updating manifest...")
+        update_manifest(config, version, filename, size_str, changelog)
+
+        # Update symlink
+        print("Updating symlink...")
+        update_symlink(config, filename)
+
+        # Prune old versions
+        print("Pruning old versions...")
+        prune_old_versions(config, keep)
+        print()
+
+        # Discord notification (next task)
+        if not args.no_notify and config.get("discord_webhook"):
+            notify_discord(config, version, changelog)
+
+        print(f"Released {mc_version} v{version}")
 
 
 if __name__ == "__main__":
