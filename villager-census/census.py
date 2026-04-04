@@ -266,7 +266,7 @@ def run_census(*, db_path, zones, poi_regions, notes=None, skipped_zones=None):
     for bell in bells:
         bx, by, bz = bell["pos"][0], bell["pos"][1], bell["pos"][2]
         vcount = meeting_point_counts.get((int(bx), int(by), int(bz)), 0)
-        bell_zone = classify_bed(zones, x=bx, z=bz)
+        bell_zone = classify_villager(zones, x=bx, z=bz)
         bell_zone_counts[bell_zone or "unclassified"] += 1
         insert_bell(
             conn,

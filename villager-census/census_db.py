@@ -178,21 +178,6 @@ def _migrate(conn):
     if "bell_count" not in cols:
         conn.execute("ALTER TABLE snapshots ADD COLUMN bell_count INTEGER NOT NULL DEFAULT 0")
 
-    # Create bells table if missing (old DBs)
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS bells (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            snapshot_id     INTEGER NOT NULL REFERENCES snapshots(id),
-            pos_x           INTEGER NOT NULL,
-            pos_y           INTEGER NOT NULL,
-            pos_z           INTEGER NOT NULL,
-            free_tickets    INTEGER NOT NULL DEFAULT 0,
-            villager_count  INTEGER NOT NULL DEFAULT 0,
-            zone            TEXT,
-            UNIQUE(snapshot_id, pos_x, pos_y, pos_z)
-        );
-    """)
-
 
 # ---------------------------------------------------------------------------
 # Insert helpers
@@ -474,6 +459,13 @@ def _get_beds_for_snapshot(conn, snapshot_id):
     return [dict(row) for row in cur.fetchall()]
 
 
+def _get_bells_for_snapshot(conn, snapshot_id):
+    cur = conn.execute(
+        "SELECT * FROM bells WHERE snapshot_id = ?", (snapshot_id,)
+    )
+    return [dict(row) for row in cur.fetchall()]
+
+
 def export_snapshot_json(conn, snapshot_id):
     """Return a full snapshot as a JSON-serializable dict."""
     snapshot = _get_snapshot_dict(conn, snapshot_id)
@@ -492,6 +484,7 @@ def export_snapshot_json(conn, snapshot_id):
         "snapshot": snapshot,
         "villagers": villagers_out,
         "beds": _get_beds_for_snapshot(conn, snapshot_id),
+        "bells": _get_bells_for_snapshot(conn, snapshot_id),
     }
 
 
