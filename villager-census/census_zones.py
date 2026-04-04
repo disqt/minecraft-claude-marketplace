@@ -70,6 +70,16 @@ def make_single_zone(*, center_x, center_z, radius, name="default"):
     }
 
 
+def zone_bounds(zone):
+    """Return (x_min, z_min, x_max, z_max) for a single zone."""
+    if zone["type"] == "rect":
+        return zone["x_min"], zone["z_min"], zone["x_max"], zone["z_max"]
+    elif zone["type"] == "circle":
+        r = zone["radius"]
+        return (zone["center_x"] - r, zone["center_z"] - r,
+                zone["center_x"] + r, zone["center_z"] + r)
+
+
 def bounding_box(zones):
     """Compute the axis-aligned bounding box covering all zones.
 
