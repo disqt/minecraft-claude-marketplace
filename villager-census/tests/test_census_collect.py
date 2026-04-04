@@ -1,14 +1,21 @@
 """Tests for census_collect.py — SSH/tmux data collection module."""
 
 import pytest
-from unittest.mock import patch
+import tempfile
+from pathlib import Path
+from unittest.mock import patch, MagicMock
 
+import census_collect
 from census_collect import (
     check_chunks_loaded,
     check_players_online,
     forceload_zones,
     get_player_position,
     parse_death_log,
+    save_all,
+    get_entity_files,
+    get_entity_mtimes,
+    entity_region_coords,
     unforceload_zones,
 )
 from census_zones import make_single_zone
@@ -241,3 +248,98 @@ def test_check_chunks_loaded_none():
         loaded = check_chunks_loaded(zones)
 
     assert loaded == []
+
+
+# --- save_all ---
+
+def test_save_all_waits_for_confirmation():
+    """save_all sends 'save-all' via tmux and returns when log shows 'Saved the game'."""
+    log_line = "[12:00:01] [Server thread/INFO]: Saved the game"
+    sent = []
+
+    with (
+        patch("census_collect._send_tmux", side_effect=lambda cmd: sent.append(cmd)),
+        patch("census_collect._run_command", return_value=[log_line]),
+        patch("census_collect.time.sleep"),
+        patch("census_collect.time.time", side_effect=[0, 1]),
+    ):
+        save_all(timeout=30)
+
+    assert "save-all" in sent
+
+
+def test_save_all_timeout():
+    """save_all raises TimeoutError if 'Saved the game' never appears."""
+    with (
+        patch("census_collect._send_tmux"),
+        patch("census_collect._run_command", return_value=["[12:00:01] Some other line"]),
+        patch("census_collect.time.sleep"),
+        patch("census_collect.time.time", side_effect=[0, 31, 62]),
+    ):
+        with pytest.raises(TimeoutError):
+            save_all(timeout=30)
+
+
+# --- get_entity_mtimes ---
+
+def test_get_entity_mtimes():
+    """get_entity_mtimes parses stat output into {filename: mtime} dict."""
+    stat_output = [
+        "1712200000 r.6.-3.mca",
+        "1712200100 r.6.-2.mca",
+    ]
+
+    with patch("census_collect._run_command", return_value=stat_output):
+        result = get_entity_mtimes([(6, -3), (6, -2)])
+
+    assert result == {
+        "r.6.-3.mca": 1712200000,
+        "r.6.-2.mca": 1712200100,
+    }
+
+
+# --- get_entity_files (SSH mode) ---
+
+def test_get_entity_files_ssh():
+    """get_entity_files downloads files via SCP when _ssh_host is set."""
+    original_ssh_host = census_collect._ssh_host
+    census_collect._ssh_host = "minecraft"
+
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_dir = Path(tmpdir)
+
+            def fake_scp(cmd, **kwargs):
+                # Simulate SCP by creating the target file
+                target = cmd[-1]
+                Path(target).write_bytes(b"fake mca data")
+                result = MagicMock()
+                result.returncode = 0
+                return result
+
+            with patch("subprocess.run", side_effect=fake_scp):
+                paths = get_entity_files([(6, -3)], local_dir)
+
+            assert len(paths) == 1
+            assert paths[0].name == "r.6.-3.mca"
+    finally:
+        census_collect._ssh_host = original_ssh_host
+
+
+# --- entity_region_coords ---
+
+def test_entity_region_coords():
+    """entity_region_coords returns correct region coords for a rect zone."""
+    zones = [{"name": "a", "type": "rect", "x_min": 3090, "z_min": -1040, "x_max": 3220, "z_max": -826}]
+    result = entity_region_coords(zones)
+    # 3090 // 512 = 6, 3220 // 512 = 6
+    # -1040 // 512 = -3 (Python floor div), -826 // 512 = -2
+    assert (6, -3) in result
+    assert (6, -2) in result
+
+
+def test_entity_region_coords_circle():
+    """entity_region_coords works for circle zones."""
+    zones = [make_single_zone(center_x=3150, center_z=-950, radius=300)]
+    result = entity_region_coords(zones)
+    assert len(result) > 0

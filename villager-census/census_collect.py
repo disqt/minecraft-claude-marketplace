@@ -12,6 +12,7 @@ TMUX_SOCKET = "/tmp/tmux-1000/pmcserver-bb664df1"
 TMUX_SESSION = "pmcserver"
 LOG_PATH = "/home/minecraft/serverfiles/logs/latest.log"
 POI_DIR = "/home/minecraft/serverfiles/world_new/poi"
+ENTITY_DIR = "/home/minecraft/serverfiles/world_new/entities"
 
 # Set via configure() — None means local mode
 _ssh_host = None
@@ -254,6 +255,82 @@ def get_poi_files(region_coords, local_dir):
                 downloaded.append(local_path)
 
     return downloaded
+
+
+def save_all(timeout=30):
+    """Send 'save-all' via tmux and wait for 'Saved the game' in the log."""
+    _send_tmux("save-all")
+    start = time.time()
+    while time.time() - start < timeout:
+        time.sleep(2)
+        lines = _run_command(f"tail -n 20 {LOG_PATH}")
+        for line in lines:
+            if "Saved the game" in line:
+                return
+    raise TimeoutError(f"save-all did not complete within {timeout}s")
+
+
+def get_entity_files(region_coords, local_dir):
+    """Get entity .mca files — copy locally or download via SCP.
+
+    Returns a list of Path objects for files that were successfully obtained.
+    """
+    local_dir = Path(local_dir)
+    local_dir.mkdir(parents=True, exist_ok=True)
+
+    downloaded = []
+    for rx, rz in region_coords:
+        filename = f"r.{rx}.{rz}.mca"
+        local_path = local_dir / filename
+
+        if _ssh_host:
+            remote = f"{_ssh_host}:{ENTITY_DIR}/{filename}"
+            result = subprocess.run(
+                ["scp", remote, str(local_path)],
+                capture_output=True, text=True, timeout=60,
+            )
+            if result.returncode == 0 and local_path.exists():
+                downloaded.append(local_path)
+        else:
+            source = Path(ENTITY_DIR) / filename
+            result = subprocess.run(
+                ["sudo", "cp", str(source), str(local_path)],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0 and local_path.exists():
+                # Fix ownership so current user can read
+                subprocess.run(["sudo", "chown", f"{os.getuid()}:{os.getgid()}", str(local_path)],
+                               capture_output=True, timeout=5)
+                downloaded.append(local_path)
+
+    return downloaded
+
+
+def get_entity_mtimes(region_coords):
+    """Stat entity .mca files and return {filename: mtime_epoch} dict."""
+    filenames = [f"r.{rx}.{rz}.mca" for rx, rz in region_coords]
+    stat_cmd = " && ".join(
+        f'stat -c "%Y {fn}" {ENTITY_DIR}/{fn}' for fn in filenames
+    )
+    lines = _run_command(stat_cmd)
+    result = {}
+    for line in lines:
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2:
+            mtime, fname = int(parts[0]), parts[1]
+            result[fname] = mtime
+    return result
+
+
+def entity_region_coords(zones):
+    """Compute the set of entity region (rx, rz) coords covering all zones."""
+    from census_zones import bounding_box
+    x_min, z_min, x_max, z_max = bounding_box(zones)
+    regions = set()
+    for x in range(x_min // 512, (x_max // 512) + 1):
+        for z in range(z_min // 512, (z_max // 512) + 1):
+            regions.add((x, z))
+    return sorted(regions)
 
 
 # ---------------------------------------------------------------------------
