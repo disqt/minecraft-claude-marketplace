@@ -13,8 +13,10 @@ from census_collect import (
     collect_villager_dumps,
     collect_villager_dumps_box,
     configure as configure_transport,
+    forceload_zones,
     get_poi_files,
     get_player_position,
+    unforceload_zones,
 )
 from census_db import (
     export_all_json,
@@ -348,7 +350,7 @@ def _build_cron_command(args):
     python = sys.executable
     db = str(Path(args.db).resolve())
 
-    parts = [python, script, "--auto", "--db", db]
+    parts = [python, script, "--lazy", "--db", db]
     if args.config:
         parts += ["--config", str(Path(args.config).resolve())]
         if args.place:
@@ -429,8 +431,8 @@ def main():
     parser.add_argument("--db", default="census.db", help="SQLite database path")
     parser.add_argument("--notes", default=None, help="Snapshot annotation")
     parser.add_argument("--export-json", action="store_true", help="Export DB as JSON and exit")
-    parser.add_argument("--auto", action="store_true",
-                        help="Cron-friendly: check chunk loading, skip gracefully, log runs")
+    parser.add_argument("--lazy", action="store_true",
+                        help="Skip zones with unloaded chunks instead of forceloading")
     parser.add_argument("--ssh", default=None, metavar="HOST",
                         help="Run via SSH to HOST (default: local execution)")
     parser.add_argument("--install", nargs="?", const="30", metavar="MINUTES",
@@ -507,17 +509,8 @@ def main():
     timestamp = datetime.now(timezone.utc).isoformat()
     skipped_zones = []
 
-    if args.auto:
-        # Check which zones have loaded chunks
-        players = check_players_online()
-        if not players:
-            conn = init_db(args.db)
-            insert_census_run(conn, timestamp=timestamp,
-                              status="skipped_no_players", reason="No players online")
-            conn.close()
-            print(f"[{timestamp}] Skipped: no players online")
-            return
-
+    if args.lazy:
+        # Lazy mode: probe chunks, skip unloaded zones
         loaded_names = check_chunks_loaded(zones)
         if not loaded_names:
             conn = init_db(args.db)
@@ -532,16 +525,25 @@ def main():
         skipped_zones = sorted(all_zone_names - set(loaded_names))
         zones = [z for z in zones if z["name"] in loaded_names]
 
-    summary = run_census(
-        db_path=args.db, zones=zones, poi_regions=poi_regions,
-        notes=args.notes, skipped_zones=skipped_zones,
-    )
+        summary = run_census(
+            db_path=args.db, zones=zones, poi_regions=poi_regions,
+            notes=args.notes, skipped_zones=skipped_zones,
+        )
 
-    if args.auto:
         conn = init_db(args.db)
         insert_census_run(conn, timestamp=timestamp, status="completed",
                           snapshot_id=summary["snapshot_id"])
         conn.close()
+    else:
+        # Force mode (default): forceload chunks, run census, unforceload
+        forceload_zones(zones)
+        try:
+            summary = run_census(
+                db_path=args.db, zones=zones, poi_regions=poi_regions,
+                notes=args.notes, skipped_zones=skipped_zones,
+            )
+        finally:
+            unforceload_zones(zones)
 
     # Print summary
     print(f"\n## Census — {summary['timestamp']}")
