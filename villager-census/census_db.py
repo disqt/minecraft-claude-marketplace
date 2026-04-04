@@ -24,7 +24,17 @@ CREATE TABLE IF NOT EXISTS snapshots (
     scan_radius      INTEGER NOT NULL DEFAULT 64,
     villager_count   INTEGER NOT NULL DEFAULT 0,
     bed_count        INTEGER NOT NULL DEFAULT 0,
-    notes            TEXT
+    notes            TEXT,
+    zones_scanned    TEXT,
+    zones_skipped    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS census_runs (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp     TEXT    NOT NULL,
+    status        TEXT    NOT NULL,
+    reason        TEXT,
+    snapshot_id   INTEGER REFERENCES snapshots(id)
 );
 
 CREATE TABLE IF NOT EXISTS villagers (
@@ -70,6 +80,7 @@ CREATE TABLE IF NOT EXISTS villager_states (
     restocks_today      INTEGER,
     on_ground           INTEGER,
     last_gossip_decay   TEXT,
+    zone                TEXT,
     UNIQUE(snapshot_id, villager_uuid)
 );
 
@@ -114,6 +125,7 @@ CREATE TABLE IF NOT EXISTS beds (
     pos_z         INTEGER NOT NULL,
     free_tickets  INTEGER NOT NULL DEFAULT 0,
     claimed_by    TEXT    REFERENCES villagers(uuid),
+    zone          TEXT,
     UNIQUE(snapshot_id, pos_x, pos_y, pos_z)
 );
 """
@@ -128,8 +140,28 @@ def init_db(db_path):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
+    _migrate(conn)
     conn.commit()
     return conn
+
+
+def _migrate(conn):
+    """Add columns and tables introduced after initial schema."""
+    cur = conn.execute("PRAGMA table_info(villager_states)")
+    cols = {row[1] for row in cur.fetchall()}
+    if "zone" not in cols:
+        conn.execute("ALTER TABLE villager_states ADD COLUMN zone TEXT")
+
+    cur = conn.execute("PRAGMA table_info(beds)")
+    cols = {row[1] for row in cur.fetchall()}
+    if "zone" not in cols:
+        conn.execute("ALTER TABLE beds ADD COLUMN zone TEXT")
+
+    cur = conn.execute("PRAGMA table_info(snapshots)")
+    cols = {row[1] for row in cur.fetchall()}
+    if "zones_scanned" not in cols:
+        conn.execute("ALTER TABLE snapshots ADD COLUMN zones_scanned TEXT")
+        conn.execute("ALTER TABLE snapshots ADD COLUMN zones_skipped TEXT")
 
 
 # ---------------------------------------------------------------------------
@@ -144,17 +176,32 @@ def _row_to_dict(row):
 
 def insert_snapshot(conn, *, timestamp, players_online, area_center_x,
                     area_center_z, scan_radius, villager_count, bed_count,
-                    notes):
+                    notes, zones_scanned=None, zones_skipped=None):
     """Insert a snapshot row and return its lastrowid."""
     cur = conn.execute(
         """
         INSERT INTO snapshots
             (timestamp, players_online, area_center_x, area_center_z,
-             scan_radius, villager_count, bed_count, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             scan_radius, villager_count, bed_count, notes,
+             zones_scanned, zones_skipped)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (timestamp, players_online, area_center_x, area_center_z,
-         scan_radius, villager_count, bed_count, notes),
+         scan_radius, villager_count, bed_count, notes,
+         zones_scanned, zones_skipped),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def insert_census_run(conn, *, timestamp, status, reason=None, snapshot_id=None):
+    """Log a census run attempt. Status: 'completed', 'skipped_no_players', 'skipped_no_chunks'."""
+    cur = conn.execute(
+        """
+        INSERT INTO census_runs (timestamp, status, reason, snapshot_id)
+        VALUES (?, ?, ?, ?)
+        """,
+        (timestamp, status, reason, snapshot_id),
     )
     conn.commit()
     return cur.lastrowid
@@ -186,7 +233,7 @@ def insert_villager_state(conn, *, snapshot_id, villager_uuid, pos_x, pos_y,
                           job_site_z, meeting_point_x, meeting_point_y,
                           meeting_point_z, last_slept, last_woken,
                           last_worked, last_restock, restocks_today,
-                          on_ground, last_gossip_decay):
+                          on_ground, last_gossip_decay, zone=None):
     """Insert a villager state row. UNIQUE(snapshot_id, villager_uuid)."""
     cur = conn.execute(
         """
@@ -196,16 +243,18 @@ def insert_villager_state(conn, *, snapshot_id, villager_uuid, pos_x, pos_y,
              ticks_lived, age, home_x, home_y, home_z, job_site_x,
              job_site_y, job_site_z, meeting_point_x, meeting_point_y,
              meeting_point_z, last_slept, last_woken, last_worked,
-             last_restock, restocks_today, on_ground, last_gossip_decay)
+             last_restock, restocks_today, on_ground, last_gossip_decay,
+             zone)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (snapshot_id, villager_uuid, pos_x, pos_y, pos_z, health,
          food_level, profession, profession_level, villager_type, xp,
          ticks_lived, age, home_x, home_y, home_z, job_site_x,
          job_site_y, job_site_z, meeting_point_x, meeting_point_y,
          meeting_point_z, last_slept, last_woken, last_worked,
-         last_restock, restocks_today, on_ground, last_gossip_decay),
+         last_restock, restocks_today, on_ground, last_gossip_decay,
+         zone),
     )
     conn.commit()
     return cur.lastrowid
@@ -260,14 +309,14 @@ def insert_gossip(conn, *, snapshot_id, villager_uuid, gossip_type,
 
 
 def insert_bed(conn, *, snapshot_id, pos_x, pos_y, pos_z, free_tickets,
-               claimed_by):
+               claimed_by, zone=None):
     """Insert a bed row. UNIQUE(snapshot_id, pos_x, pos_y, pos_z)."""
     cur = conn.execute(
         """
-        INSERT INTO beds (snapshot_id, pos_x, pos_y, pos_z, free_tickets, claimed_by)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO beds (snapshot_id, pos_x, pos_y, pos_z, free_tickets, claimed_by, zone)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (snapshot_id, pos_x, pos_y, pos_z, free_tickets, claimed_by),
+        (snapshot_id, pos_x, pos_y, pos_z, free_tickets, claimed_by, zone),
     )
     conn.commit()
     return cur.lastrowid

@@ -1,61 +1,117 @@
-"""census_collect.py — SSH/tmux data collection from the PaperMC server."""
+"""census_collect.py — Data collection from PaperMC server (local or SSH)."""
 
+import os
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
 
-SSH_HOST = "minecraft"
+# Defaults — assume local execution on the minecraft server
 TMUX_SOCKET = "/tmp/tmux-1000/pmcserver-bb664df1"
 TMUX_SESSION = "pmcserver"
 LOG_PATH = "/home/minecraft/serverfiles/logs/latest.log"
 POI_DIR = "/home/minecraft/serverfiles/world_new/poi"
 
+# Set via configure() — None means local mode
+_ssh_host = None
 
-def _ssh_command(cmd):
-    """Run `ssh minecraft <cmd>`, return stdout lines. Timeout 30s."""
+
+def configure(*, ssh_host=None):
+    """Set the transport mode. Call once at startup.
+
+    ssh_host=None: local mode (default, for running on the VPS)
+    ssh_host="minecraft": SSH mode (for running remotely)
+    """
+    global _ssh_host
+    _ssh_host = ssh_host
+
+
+def _run_command(cmd):
+    """Run a command locally (as minecraft user) or via SSH, return stdout lines."""
+    if _ssh_host:
+        full_cmd = ["ssh", _ssh_host, cmd]
+    else:
+        full_cmd = ["sudo", "-u", "minecraft", "bash", "-c", cmd]
     result = subprocess.run(
-        ["ssh", SSH_HOST, cmd],
-        capture_output=True,
-        text=True,
-        timeout=30,
+        full_cmd, capture_output=True, text=True, timeout=30,
     )
     return result.stdout.splitlines()
 
 
 def _send_tmux(command):
-    """Send a command to the tmux session via SSH. Timeout 10s."""
+    """Send a command to the tmux session."""
     tmux_cmd = f"tmux -S {TMUX_SOCKET} send-keys -t {TMUX_SESSION} '{command}' Enter"
-    subprocess.run(
-        ["ssh", SSH_HOST, tmux_cmd],
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
+    if _ssh_host:
+        full_cmd = ["ssh", _ssh_host, tmux_cmd]
+    else:
+        full_cmd = ["sudo", "-u", "minecraft", "bash", "-c", tmux_cmd]
+    subprocess.run(full_cmd, capture_output=True, text=True, timeout=10)
 
 
 def _tail_log_after_command(command, wait_seconds=5, tail_lines=200):
     """Send tmux command, sleep, then tail the server log. Return lines."""
     _send_tmux(command)
     time.sleep(wait_seconds)
-    return _ssh_command(f"tail -n {tail_lines} {LOG_PATH}")
+    return _run_command(f"tail -n {tail_lines} {LOG_PATH}")
 
 
 # ---------------------------------------------------------------------------
 # High-level collection functions
 # ---------------------------------------------------------------------------
 
+def check_chunks_loaded(zones):
+    """Probe which zones have loaded chunks using 'execute if loaded'.
+
+    Sends one probe per zone via tmux, then reads the log for markers.
+    Returns a list of zone names whose chunks are loaded.
+    """
+    from census_zones import zone_center
+
+    timestamp = int(time.time())
+    start_marker = f"CHUNKPROBE_{timestamp}_START"
+    end_marker = f"CHUNKPROBE_{timestamp}_END"
+
+    _send_tmux(f"say {start_marker}")
+    time.sleep(0.5)
+
+    for zone in zones:
+        cx, cz = zone_center(zone)
+        marker = f"CHUNKPROBE_{timestamp}_{zone['name']}"
+        _send_tmux(f"execute if loaded {cx} 64 {cz} run say {marker}")
+        time.sleep(0.3)
+
+    time.sleep(1)
+    _send_tmux(f"say {end_marker}")
+    time.sleep(1)
+
+    all_lines = _run_command(f"tail -n 500 {LOG_PATH}")
+
+    collecting = False
+    loaded = []
+    zone_markers = {
+        f"CHUNKPROBE_{timestamp}_{z['name']}": z["name"] for z in zones
+    }
+    for line in all_lines:
+        if start_marker in line:
+            collecting = True
+            continue
+        if end_marker in line:
+            break
+        if collecting:
+            for marker, name in zone_markers.items():
+                if marker in line and name not in loaded:
+                    loaded.append(name)
+
+    return loaded
+
+
 def check_players_online():
     """Send 'list' command and return a list of online player names.
 
     Returns an empty list if no players are online.
     """
-    lines = _ssh_command(f"tail -n 50 {LOG_PATH}")
-    # We actually need to send the list command first, then read the log.
-    # The helper _tail_log_after_command handles that flow, but check_players_online
-    # uses _ssh_command directly so tests can mock it simply.
-    # In production, call:  lines = _tail_log_after_command("list", wait_seconds=2)
-    # For testability the function reads from _ssh_command (caller controls the mock).
+    lines = _run_command(f"tail -n 50 {LOG_PATH}")
     pattern = re.compile(
         r"There are (\d+) of a max of \d+ players online:(.*)"
     )
@@ -91,13 +147,27 @@ def get_player_position(player_name):
 
 
 def collect_villager_dumps(center_x, center_z, radius):
-    """Collect raw entity-data lines for all villagers within radius of (cx, cz).
+    """Collect raw entity-data lines for all villagers within radius of (cx, cz)."""
+    selector = (
+        f"@e[type=minecraft:villager,"
+        f"x={center_x},y=70,z={center_z},distance=..{radius}]"
+    )
+    return _collect_with_selector(selector)
 
-    Uses say-based START/END markers so we can isolate lines produced by this
-    particular execute burst in a busy log.
 
-    Returns a list of log lines that contain villager entity data.
-    """
+def collect_villager_dumps_box(x_min, z_min, x_max, z_max):
+    """Collect raw entity-data lines for all villagers within a bounding box."""
+    dx = x_max - x_min
+    dz = z_max - z_min
+    selector = (
+        f"@e[type=minecraft:villager,"
+        f"x={x_min},y=-64,z={z_min},dx={dx},dy=384,dz={dz}]"
+    )
+    return _collect_with_selector(selector)
+
+
+def _collect_with_selector(selector):
+    """Send an execute/data-get command with START/END markers, return entity lines."""
     timestamp = int(time.time())
     start_marker = f"CENSUS_{timestamp}_START"
     end_marker = f"CENSUS_{timestamp}_END"
@@ -105,21 +175,14 @@ def collect_villager_dumps(center_x, center_z, radius):
     _send_tmux(f"say {start_marker}")
     time.sleep(0.5)
 
-    execute_cmd = (
-        f"execute as @e[type=minecraft:villager,"
-        f"x={center_x},y=70,z={center_z},distance=..{radius}]"
-        f" run data get entity @s"
-    )
-    _send_tmux(execute_cmd)
+    _send_tmux(f"execute as {selector} run data get entity @s")
     time.sleep(5)
 
     _send_tmux(f"say {end_marker}")
     time.sleep(1)
 
-    # Pull a generous tail of the log to capture all output
-    all_lines = _ssh_command(f"tail -n 2000 {LOG_PATH}")
+    all_lines = _run_command(f"tail -n 2000 {LOG_PATH}")
 
-    # Find the window between markers
     collecting = False
     results = []
     for line in all_lines:
@@ -134,29 +197,38 @@ def collect_villager_dumps(center_x, center_z, radius):
     return results
 
 
-def download_poi_files(region_coords, local_dir):
-    """Download POI .mca files for the given region coordinates via scp.
+def get_poi_files(region_coords, local_dir):
+    """Get POI .mca files — copy locally or download via SCP.
 
-    region_coords: iterable of (rx, rz) tuples
-    local_dir: local directory Path (or str) to download into
-
-    Returns a list of Path objects for files that were successfully downloaded.
+    Returns a list of Path objects for files that were successfully obtained.
     """
     local_dir = Path(local_dir)
     local_dir.mkdir(parents=True, exist_ok=True)
 
     downloaded = []
     for rx, rz in region_coords:
-        remote = f"{SSH_HOST}:{POI_DIR}/r.{rx}.{rz}.mca"
-        local_path = local_dir / f"r.{rx}.{rz}.mca"
-        result = subprocess.run(
-            ["scp", remote, str(local_path)],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if result.returncode == 0 and local_path.exists():
-            downloaded.append(local_path)
+        filename = f"r.{rx}.{rz}.mca"
+        local_path = local_dir / filename
+
+        if _ssh_host:
+            remote = f"{_ssh_host}:{POI_DIR}/{filename}"
+            result = subprocess.run(
+                ["scp", remote, str(local_path)],
+                capture_output=True, text=True, timeout=60,
+            )
+            if result.returncode == 0 and local_path.exists():
+                downloaded.append(local_path)
+        else:
+            source = Path(POI_DIR) / filename
+            result = subprocess.run(
+                ["sudo", "cp", str(source), str(local_path)],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0 and local_path.exists():
+                # Fix ownership so current user can read
+                subprocess.run(["sudo", "chown", f"{os.getuid()}:{os.getgid()}", str(local_path)],
+                               capture_output=True, timeout=5)
+                downloaded.append(local_path)
 
     return downloaded
 
@@ -165,10 +237,6 @@ def download_poi_files(region_coords, local_dir):
 # Log parsing helpers
 # ---------------------------------------------------------------------------
 
-# Pattern for villager death lines emitted by PaperMC:
-# Villager Villager['Villager'/15678, uuid='d68d9d96-...', l='ServerLevel[world_new]',
-#   x=3145.37, y=63.00, z=-965.30, cpos=[196, -61], tl=59771, v=true]
-#   died, message: 'Villager was killed'
 _DEATH_PATTERN = re.compile(
     r"Villager\[.*?uuid='([0-9a-f-]+)'.*?"
     r"x=(-?[\d.]+),\s*y=(-?[\d.]+),\s*z=(-?[\d.]+),\s*"

@@ -4,10 +4,12 @@ import pytest
 from unittest.mock import patch
 
 from census_collect import (
+    check_chunks_loaded,
     check_players_online,
     get_player_position,
     parse_death_log,
 )
+from census_zones import make_single_zone
 
 SAMPLE_LIST_OUTPUT = "[19:20:22] [Server thread/INFO]: There are 1 of a max of 20 players online: Termiduck"
 SAMPLE_LIST_EMPTY = "[19:20:22] [Server thread/INFO]: There are 0 of a max of 20 players online: "
@@ -45,20 +47,20 @@ def test_parse_death_log_returns_none_on_non_match():
 # --- check_players_online ---
 
 def test_check_players_online():
-    with patch("census_collect._ssh_command", return_value=[SAMPLE_LIST_OUTPUT]):
+    with patch("census_collect._run_command", return_value=[SAMPLE_LIST_OUTPUT]):
         players = check_players_online()
     assert players == ["Termiduck"]
 
 
 def test_check_players_online_empty():
-    with patch("census_collect._ssh_command", return_value=[SAMPLE_LIST_EMPTY]):
+    with patch("census_collect._run_command", return_value=[SAMPLE_LIST_EMPTY]):
         players = check_players_online()
     assert players == []
 
 
 def test_check_players_online_multiple():
     line = "[19:20:22] [Server thread/INFO]: There are 3 of a max of 20 players online: Alice, Bob, Charlie"
-    with patch("census_collect._ssh_command", return_value=[line]):
+    with patch("census_collect._run_command", return_value=[line]):
         players = check_players_online()
     assert players == ["Alice", "Bob", "Charlie"]
 
@@ -79,3 +81,78 @@ def test_get_player_position_not_found():
     with patch("census_collect._tail_log_after_command", return_value=["some unrelated log line"]):
         pos = get_player_position("Termiduck")
     assert pos is None
+
+
+# --- check_chunks_loaded ---
+
+def test_check_chunks_loaded_all_loaded():
+    """All zones report loaded when markers appear in log."""
+    zones = [
+        make_single_zone(center_x=100, center_z=200, radius=50, name="zone-a"),
+        make_single_zone(center_x=300, center_z=400, radius=50, name="zone-b"),
+    ]
+
+    def fake_ssh(cmd):
+        # Return log lines with both markers present
+        return [
+            "[12:00:00] [Server thread/INFO]: [Server] CHUNKPROBE_12345_START",
+            "[12:00:01] [Server thread/INFO]: [Server] CHUNKPROBE_12345_zone-a",
+            "[12:00:01] [Server thread/INFO]: [Server] CHUNKPROBE_12345_zone-b",
+            "[12:00:02] [Server thread/INFO]: [Server] CHUNKPROBE_12345_END",
+        ]
+
+    with (
+        patch("census_collect._send_tmux"),
+        patch("census_collect._run_command", side_effect=fake_ssh),
+        patch("census_collect.time.sleep"),
+        patch("census_collect.time.time", return_value=12345),
+    ):
+        loaded = check_chunks_loaded(zones)
+
+    assert set(loaded) == {"zone-a", "zone-b"}
+
+
+def test_check_chunks_loaded_partial():
+    """Only zones whose markers appear are returned."""
+    zones = [
+        make_single_zone(center_x=100, center_z=200, radius=50, name="loaded-zone"),
+        make_single_zone(center_x=300, center_z=400, radius=50, name="unloaded-zone"),
+    ]
+
+    def fake_ssh(cmd):
+        return [
+            "[12:00:00] [Server thread/INFO]: [Server] CHUNKPROBE_99_START",
+            "[12:00:01] [Server thread/INFO]: [Server] CHUNKPROBE_99_loaded-zone",
+            "[12:00:02] [Server thread/INFO]: [Server] CHUNKPROBE_99_END",
+        ]
+
+    with (
+        patch("census_collect._send_tmux"),
+        patch("census_collect._run_command", side_effect=fake_ssh),
+        patch("census_collect.time.sleep"),
+        patch("census_collect.time.time", return_value=99),
+    ):
+        loaded = check_chunks_loaded(zones)
+
+    assert loaded == ["loaded-zone"]
+
+
+def test_check_chunks_loaded_none():
+    """No markers means no zones loaded."""
+    zones = [make_single_zone(center_x=100, center_z=200, radius=50, name="zone-a")]
+
+    def fake_ssh(cmd):
+        return [
+            "[12:00:00] [Server thread/INFO]: [Server] CHUNKPROBE_55_START",
+            "[12:00:02] [Server thread/INFO]: [Server] CHUNKPROBE_55_END",
+        ]
+
+    with (
+        patch("census_collect._send_tmux"),
+        patch("census_collect._run_command", side_effect=fake_ssh),
+        patch("census_collect.time.sleep"),
+        patch("census_collect.time.time", return_value=55),
+    ):
+        loaded = check_chunks_loaded(zones)
+
+    assert loaded == []
