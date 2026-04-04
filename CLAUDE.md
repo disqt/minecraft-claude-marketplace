@@ -11,7 +11,7 @@ A Claude Code **plugin marketplace** (`disqt/minecraft`) for Minecraft server an
 redstone-viewer/                    # HTML viewers (disqt.com/minecraft/redstone/)
 modpack-version-checker/            # Modpack version checker (Paper plugin + Fabric mod)
 plugins/
-  minecraft-prism-client/           # Client modpack management (v1.0.3) — skills: prism-audit, meta-refresh, version-refresh, compat-check, redstone
+  minecraft-prism-client/           # Client modpack management (v1.0.4) — skills: prism-audit, meta-refresh, version-refresh, compat-check, redstone, publish-modpack
   minecraft-papermc-server/         # Server plugin management (v1.0.4) — skills: papermc-audit, paper-check, meta-refresh, version-refresh, executor, compat-check, villager-census
   minecraft-spark-analyzer/         # Spark profiler analysis (v1.1.0) — skill: spark-analyze
 docs/superpowers/                   # Plans and specs
@@ -139,37 +139,22 @@ python world-migration-cli/migrate.py ./world --threshold 120 --dangerously-perf
 
 ## Modpack Publishing
 
-Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
+Automated via `prism-modpack-releaser/modpack_release.py`. Use the `/publish-modpack` skill (in minecraft-prism-client plugin) or run directly:
 
-1. Copy instance, update `instance.cfg` (name, ExportVersion), `modpack-version.txt`
-2. Zip with Python or 7z:
-   ```python
-   python3 -c "
-   import zipfile, os
-   src = r'<instance-path>'
-   dst = r'C:\Users\leole\AppData\Local\Temp\<name>.zip'
-   exclude = ['Distant_Horizons_server_data', 'screenshots', 'saves', 'downloads', '.mixin.out', 'debug', 'logs']
-   with zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zf:
-       for root, dirs, files in os.walk(src):
-           dirs[:] = [d for d in dirs if d not in exclude]
-           for f in files:
-               full = os.path.join(root, f)
-               arcname = '<name>/' + os.path.relpath(full, src)
-               zf.write(full, arcname)
-   "
-   ```
-3. `scp <zip> dev:/home/dev/prism/`
-4. Update symlink: `ssh dev "cd /home/dev/prism && ln -sf '<name>.zip' latest.zip"`
-5. Update manifest.json (prepend to versions array, update latest)
-6. Cleanup (handle spaces in filenames): `ls -t *.zip | grep -v latest.zip | tail -n +4 | while IFS= read -r f; do rm -f "$f"; done`
-7. Reload version checker: `ssh minecraft "tmux -S /tmp/tmux-1000/pmcserver-bb664df1 send-keys -t pmcserver 'plugman reload DisqtVersion' Enter"`
+```bash
+python prism-modpack-releaser/modpack_release.py "<instance-path>" --version <ver> [--dry-run] [--yes] [--no-notify]
+```
 
-**Important:** Close Minecraft before copying instances -- locked files cause incomplete copies.
-**Important:** `7z` is available (installed via choco). Python `zipfile` also works.
+Handles: zip (.packignore exclusions), changelog (auto-diff against VPS), SCP upload, manifest.json, symlink, prune, Discord notification via bot.
+Config: `prism-modpack-releaser/modpack-release.json` (gitignored, contains channel ID and role ID). Template: `modpack-release.example.json`.
+Tests: `python -m pytest prism-modpack-releaser/test_modpack_release.py` (CI runs on changes to that dir).
+
+**Important:** Close Minecraft before running -- locked files cause incomplete zips.
+**Important:** Instance must have `.packignore` in root or DH data (~800 MB) inflates the zip.
 
 ### Prism Launcher Instances
 - Path: `C:\Users\leole\AppData\Roaming\PrismLauncher\instances\`
-- Current modpack: `1.21.11 v2.8` (Fabric 0.18.4, MC 1.21.11)
+- Current modpack: `1.21.11 v2.10` (Fabric 0.18.4, MC 1.21.11)
 - JVM: Shenandoah GC with brucethemoose client-tuned flags
 - Modpack hosted at: `https://disqt.com/minecraft/modpack/` (VPS path: `/home/dev/prism/`)
 
@@ -202,6 +187,17 @@ Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
 
 #### Spark swap false alarm on Windows
 Spark reports Windows page file *allocated* size as "swap used", not actual usage. A "38 GB swap" reading is normal — check actual usage with `Get-CimInstance Win32_PageFileUsage` (CurrentUsage field). Only flag if CurrentUsage is high.
+
+## Discord Bot Notify Endpoint
+
+The Disqt Discord bot (`disqt/disqt-discord-bot`, runs on `ssh cs`) exposes `localhost:9800/send` for sending messages from VPS scripts. Same VPS as `dev` (`debian-disqt-2001`).
+
+```bash
+curl -sf -X POST http://localhost:9800/send -H 'Content-Type: application/json' \
+  -d '{"channel_id":"<id>","content":"<text>","embed":{"title":"...","description":"...","color":123}}'
+```
+
+Role pings work in `content` field (bot has permissions). Webhooks cannot ping roles.
 
 ## Key APIs Used
 
