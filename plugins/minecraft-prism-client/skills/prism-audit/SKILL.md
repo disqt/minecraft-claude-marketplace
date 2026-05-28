@@ -5,10 +5,11 @@ description: Use when the user wants to do a full refresh of their Prism Launche
 
 REQUIRED SUB-SKILL: meta-refresh
 REQUIRED SUB-SKILL: version-refresh
+REQUIRED SUB-SKILL: compat-check
 
 # Minecraft Prism Client Audit
 
-Entry point for a full modset refresh. Creates the shared decision doc, then invokes meta-refresh. The skills chain automatically: meta-refresh → version-refresh → background executor.
+Entry point for a full modset refresh. Creates the shared decision doc, runs a compat scan to identify incompatible mods, then invokes meta-refresh with that knowledge. The skills chain: compat-scan → meta-refresh → version-refresh → background executor.
 
 ## Paths
 
@@ -39,12 +40,14 @@ Ask for any of these not already provided:
 ```
 prism-audit
   └─ creates decision doc
-  └─ invokes meta-refresh
+  └─ runs compat scan (lightweight: checks every mod + library for target MC build)
+       └─ flags INCOMPATIBLE mods → writes compat scan section to decision doc
+  └─ invokes meta-refresh (receives compat results so it knows what's already dead)
        └─ research → upgrade plan → user approves → writes meta decisions to doc
-       └─ invokes version-refresh
-            └─ research → upgrade plan → user approves → appends version decisions to doc
-            └─ dispatches background executor
-                 └─ clones instance → applies meta changes → applies version updates → config research
+  └─ invokes version-refresh (full pass: changelogs + executor)
+       └─ research → upgrade plan → user approves → appends version decisions to doc
+       └─ dispatches background executor
+            └─ clones instance → applies meta changes → applies version updates → config research
 ```
 
 ---
@@ -64,7 +67,35 @@ Modloader: <loader>
 
 ---
 
-## Step 2 — Invoke meta-refresh
+## Step 2 — Compat scan
+
+Before any meta analysis, check whether each existing mod and library has a build for the target MC version. This prevents meta-refresh from recommending KEEP for mods that can't run, or ADD for mods whose required libraries are missing.
+
+**Dispatch parallel agents** (batch by 5-6 mods each) to run the compat-check procedure on every mod and library JAR in the instance. Use `run_in_background: true`.
+
+For each mod, record: `✓ exact`, `~ minor`, `~ community` (see compat-check skill), or `✗ none`.
+
+**Write results to the decision doc** as a compat scan section:
+
+```md
+## Compat scan
+
+| Mod | Type | Current Version | 26.1.2 Build? | Status |
+|-----|------|-----------------|---------------|--------|
+| Sodium | performance | 0.8.7 | 0.8.12 | ✓ exact |
+| Architectury API | library | 19.0.1 | — | ✗ none |
+```
+
+**Present incompatible mods to the user** before proceeding. Say:
+
+> These mods/libraries have no confirmed build for MC {version}:
+> - {list}
+>
+> They'll be flagged for removal in the meta-refresh. Proceed?
+
+---
+
+## Step 3 — Invoke meta-refresh
 
 Say: "Invoking `meta-refresh`."
 
@@ -74,7 +105,8 @@ Invoke `meta-refresh`, passing:
 - Modloader
 - Player profile
 - Server SSH host (if provided)
-- Decision doc path (`./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md`)
+- Decision doc path
+- **Compat scan results** — the list of INCOMPATIBLE mods/libraries, so meta-refresh can pre-flag them as REMOVE candidates and avoid recommending gap mods that depend on missing libraries.
 
 Meta-refresh chains to version-refresh, which chains to the executor. No further action needed from audit.
 
@@ -82,5 +114,6 @@ Meta-refresh chains to version-refresh, which chains to the executor. No further
 
 ## Common Mistakes
 
+- **Skipping the compat scan** — this is the #1 failure mode. Without it, meta-refresh recommends KEEP for dead mods and ADD for mods with missing library deps. Always run compat scan first.
 - **Skipping inputs** — always ask for any missing values. Don't assume MC version or instance name.
 - **Wrong decision doc path** — must be `./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md`, not in the instance directory or elsewhere.
