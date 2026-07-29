@@ -3,7 +3,7 @@ package com.disqt.version;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +18,7 @@ public class DisqtVersionClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-            Path versionFile = MinecraftClient.getInstance().runDirectory
+            Path versionFile = Minecraft.getInstance().gameDirectory
                 .toPath().resolve("modpack-version.txt");
 
             if (!Files.exists(versionFile)) {
