@@ -95,6 +95,16 @@ def ssh_cmd(host: str, cmd: str) -> str:
     return result.stdout
 
 
+def ssh_write(host: str, remote_path: str, data: str) -> None:
+    """Write data to a remote file via stdin pipe (avoids command-length limits)."""
+    result = subprocess.run(
+        ["ssh", host, f"cat > {remote_path}"],
+        input=data, capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"SSH write to {remote_path} failed:\n{result.stderr}")
+
+
 def get_previous_zip_contents(config: dict) -> tuple[set[str], set[str]]:
     """Get mod jar names and config paths from the latest version on VPS.
     Returns (mod_jars, config_paths). Single SSH round-trip for manifest + unzip.
@@ -231,9 +241,9 @@ def upload_zip(zip_path: Path, config: dict):
     host = config["vps_host"]
     vps_path = config["vps_path"]
     dest = f"{host}:{vps_path}/{zip_path.name}"
-    print(f"Uploading {zip_path.name}...")
+    print(f"Uploading {zip_path.name}...", flush=True)
     subprocess.run(["scp", str(zip_path), dest], check=True)
-    print("  Upload complete.")
+    print("  Upload complete.", flush=True)
 
 
 def update_manifest(config: dict, version: str, filename: str, size_str: str, changelog: list[str]):
@@ -263,7 +273,7 @@ def update_manifest(config: dict, version: str, filename: str, size_str: str, ch
     manifest["versions"].insert(0, new_entry)
 
     manifest_json = json.dumps(manifest, indent=2, ensure_ascii=False)
-    ssh_cmd(host, f"cat > {vps_path}/manifest.json <<'MANIFEST_EOF'\n{manifest_json}\nMANIFEST_EOF")
+    ssh_write(host, f"{vps_path}/manifest.json", manifest_json)
     print("  Manifest updated.")
 
 
@@ -291,7 +301,7 @@ def prune_old_versions(config: dict, keep: int):
     manifest["versions"] = versions[:keep]
 
     manifest_json = json.dumps(manifest, indent=2, ensure_ascii=False)
-    ssh_cmd(host, f"cat > {vps_path}/manifest.json <<'MANIFEST_EOF'\n{manifest_json}\nMANIFEST_EOF")
+    ssh_write(host, f"{vps_path}/manifest.json", manifest_json)
 
     for entry in to_remove:
         old_file = entry.get("file", "")
