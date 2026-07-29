@@ -6,6 +6,7 @@
   "description": "Sends modpack version to the server on join",
   "authors": [{ "name": "disqt" }],
   "license": "MIT",
+  "icon": "assets/disqt-version/icon.png",
   "environment": "client",
   "entrypoints": {
     "main": ["com.disqt.version.DisqtVersion"],

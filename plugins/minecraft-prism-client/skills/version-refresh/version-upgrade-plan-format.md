@@ -33,12 +33,24 @@ Use this format for the Step 3 upgrade plan.
 
 | Action | When to use |
 |--------|-------------|
-| `MAJOR UPDATE` | Different major version (e.g. 1.x → 2.x) |
-| `UPDATE` | Different minor or patch version (e.g. 1.3.0 → 1.4.2) |
-| `MINOR UPDATE` | Same version number, channel/build change only (e.g. edge → stable, alpha → beta) |
-| `FLAG` | Mod exists but no build for target MC version — surface for user decision |
-| `ABANDON` | No update in 12+ months, no newer MC builds |
+| `MAJOR UPDATE` | First version digit changed (e.g. 1.x → 2.x, 8.x → 9.x). NOT for minor/patch jumps even if they span many versions (0.21 → 0.24 is UPDATE, not MAJOR). |
+| `UPDATE` | Any version change that isn't MAJOR or MINOR (e.g. 1.3.0 → 1.4.2, 0.21.4 → 0.24.3, 3.1.3 → 4.0.1) |
+| `MINOR UPDATE` | Same version number, channel/build change only (e.g. edge → stable, alpha → beta, same base recompiled for new MC) |
+| `FLAG` | Mod exists but no confirmed build for target MC version — surface for user decision |
+| `ABANDON` | No update in 12+ months AND no build for any newer MC version |
 | `CHECK DISCORD` | Not found on any source |
+
+### Version classification examples
+
+| Old → New | Action | Why |
+|-----------|--------|-----|
+| 1.3.0 → 2.0.0 | MAJOR UPDATE | First digit changed |
+| 8.2.0 → 9.0.0 | MAJOR UPDATE | First digit changed |
+| 0.21.4 → 0.24.3 | UPDATE | First digit (0) unchanged; minor bump |
+| 3.8.2 → 3.9.3 | UPDATE | First digit unchanged |
+| 17.0.0 → 18.0.2 | MAJOR UPDATE | First digit changed |
+| 0.7.6+1.21 → 0.7.6+26.1 | MINOR UPDATE | Same base version, MC rebuild only |
+| 2.4.23+edge → 2.4.23+stable | MINOR UPDATE | Channel change only |
 
 ## Rules
 
