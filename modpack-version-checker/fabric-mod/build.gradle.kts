@@ -19,3 +19,12 @@ dependencies {
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
 }
+
+tasks.processResources {
+    // fabric.mod.json declares "version": "${version}" -- substitute it, otherwise Fabric
+    // Loader warns the version is not valid SemVer and cannot evaluate dependencies.
+    inputs.property("version", project.version)
+    filesMatching("fabric.mod.json") {
+        expand("version" to project.version)
+    }
+}
